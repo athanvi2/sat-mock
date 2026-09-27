@@ -5,15 +5,28 @@ A Flask app for one-on-one Digital SAT tutoring. It runs on your computer, store
 ## Run it
 
     pip install flask
-    python app.py          # then open http://127.0.0.1:5000
+    python app.py
 
-`run.sh` (macOS/Linux) and `run.bat` (Windows) do the same. Back up `sat_mock.db` to keep student history.
+It prints two addresses:
+
+- **Instructor (this Mac):** http://localhost:5050/instructor. The first visit asks you to choose a 6-digit PIN; then turn on Touch ID in Settings. Instructor view only opens on this Mac.
+- **Students (same Wi-Fi):** the `http://<your-mac>.local:5050` address. Students add themselves on the welcome screen with a name and 4-digit PIN. If a device cannot connect, allow Python in System Settings > Network > Firewall.
+
+Port 5050 is used because macOS AirPlay Receiver holds 5000. `run.sh` (macOS/Linux) and `run.bat` (Windows) do the same. Everything is in `sat_mock.db`; the instructor Settings page has a backup button, and a backup is saved automatically before a student is deleted.
+
+## How a student starts
+
+1. Adds themselves (name, PIN, grade, test date, goal).
+2. Takes the **1-hour diagnostic** (a scaled adaptive mock: 24 Reading and Writing + 20 Math questions, about 60 minutes), or enters an official SAT/PSAT or Bluebook score instead.
+3. Home shows **Up next**: the skills where practice should move the score most, with one-click recommended practice at a difficulty matched to their level.
+
+In practice the student chooses the help level: **hint first** (a wrong first try gets a hint and one more try), **show the answer** after the first try, or **locked until the end**. Only the first try ever counts toward the score estimate.
 
 ## Weekly use
 
-- **Regular Sunday** (1st to 4th): open *Skills and lectures*, teach one skill from its lecture sheet (30 min), then *Practice > 30-minute session* with feedback on (30 min). The results page names the session's weakest skill and links to a printable **homework sheet** (10 to 15 problems, sized to about 30 minutes, with the "How to do this:" and "What can u see" cover sheet).
-- **5th Sunday**: *Mock exam > Hour-long mock*. The home page shows which Sundays are mock days.
-- **Dashboard**: score range, weakest and strongest skills, improvement per skill, pacing. *Parent summary* shows the plain-language version and prints cleanly.
+- **Regular Sunday** (1st to 4th): teach one skill from its lecture sheet (students see worked examples behind Hint / Show answer; the instructor sees them open), then 30 minutes of practice. The results page names the session's weakest skill and links to a homework sheet; only the instructor can print its answer key.
+- **5th Sunday**: *Mock exam > Hour-long mock*.
+- **Instructor > student**: score range and timeline (with official scores marked), weekly practice, per-skill mastery, sessions, and a printable **parent summary**.
 
 ## How the pieces map to the official Digital SAT
 
@@ -29,7 +42,7 @@ A Flask app for one-on-one Digital SAT tutoring. It runs on your computer, store
 
 ## Scoring is an estimate
 
-The College Board does not publish its scoring. `scoring.py` uses a simple item-response model (difficulty levels, a guessing floor, recent answers weighted more) and reports an 80% range that narrows as answers accumulate. Use it to see direction and gaps, and calibrate against a real Bluebook practice test when you have one.
+The College Board does not publish its scoring. `scoring.py` uses a simple item-response model and reports an 80% range. It is built to stay honest: first tries only; blanks in timed sets count as wrong; untimed and single-topic practice count less; no skill or domain can dominate the evidence; untested domains widen the range; an official or Bluebook score anchors it, loosening with time since that test. `python tests/score_check.py` checks, on simulated students, that the 80% range contains the true score about 80% of the time. Entering a real Bluebook practice score is the best calibration available.
 
 ## Questions
 
@@ -43,6 +56,7 @@ All questions are original (not College Board items). Math has parametric genera
 
 ## Tests
 
-    python tests/smoke.py       # end-to-end run of practice, adaptive mock, results, dashboard, homework
+    python tests/smoke.py       # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock and student management
+    python tests/score_check.py # the score estimate on simulated students
     python tests/fuzz_math.py   # generators build valid, non-duplicate-choice questions
     python tests/fuzz_rw.py

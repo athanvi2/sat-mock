@@ -1,6 +1,6 @@
 # sat_mock
 
-A local Flask app for 1-on-1 Digital SAT tutoring. One tutor, one student at a time, runs entirely on the tutor's machine, stores everything in a single SQLite file. No build step, no frontend framework: server-rendered Jinja templates plus a couple of hand-written JS files.
+A local Flask app for in-person Digital SAT tutoring. Runs on the tutor's Mac; students use their own devices over the tutor's home Wi-Fi. Two roles: **student** (signs in with name + 4-digit PIN, self-registers) and **instructor** (only reachable from the Mac itself, behind Touch ID or a 6-digit PIN). Stores everything in a single SQLite file. No build step, no frontend framework: server-rendered Jinja templates plus a couple of hand-written JS files.
 
 Read this file before making changes. It exists so you don't have to rediscover the architecture, the conventions, or the parts that are easy to break, each session.
 
@@ -10,7 +10,7 @@ Read this file before making changes. It exists so you don't have to rediscover 
 source .venv/bin/activate
 python app.py
 ```
-Opens on http://127.0.0.1:5000. `SAT_DB` env var overrides the sqlite file path (tests use `/tmp/*.db` so they never touch real student data).
+Listens on all interfaces, port **5050** (5000 is taken by macOS AirPlay Receiver; `PORT`/`HOST` env vars override). The instructor uses http://localhost:5050/instructor on the Mac (Touch ID needs `localhost`, not `127.0.0.1`; the app redirects). Students use the `.local` / LAN address printed at startup and shown on the instructor page. `SAT_DB` env var overrides the sqlite file path (tests use `/tmp/*.db` so they never touch real student data).
 
 ## Testing
 
@@ -20,11 +20,12 @@ Run these after any change to `bank/`, `app.py`, `scoring.py`, `analytics.py`, o
 python tests/portable_check.py   # confirms code still parses as Python 3.8 (see "Python version" below)
 python tests/fuzz_math.py        # every math generator, every difficulty, hundreds of seeds, no crashes/duplicate choices
 python tests/fuzz_rw.py          # same for reading & writing
-python tests/smoke.py            # end-to-end: practice, adaptive mock routing, results, review, dashboard, homework, every skill's pages
+python tests/smoke.py            # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock + CRUD, every skill's pages
+python tests/score_check.py      # simulated students: 80% ranges cover ~80%, no bias, edge cases (drilling, skipping, priors, recency)
 python tests/bank_report.py      # prints how many distinct questions each skill can produce at each difficulty
 ```
 
-`tests/smoke.py` is the one that actually exercises the Flask app (via `app.test_client()`), including the adaptive module-2 routing logic (plays a high-accuracy and low-accuracy student and checks the harder/easier module gets picked correctly). Don't skip it after touching `app.py`.
+`tests/smoke.py` is the one that actually exercises the Flask app (via `app.test_client()`), including the adaptive module-2 routing logic (asserts a 97%-accuracy student gets both harder Module 2s and a 5% one both easier), the instructor lock (404 from non-local addresses, PIN lockout), and that students never receive answer keys. Don't skip it after touching `app.py`. Run `tests/score_check.py` after touching `scoring.py` or `analytics.py`.
 
 There's no visual regression test. After CSS/template changes, actually load the page in a browser and look at it, especially the exam runner (`templates/runner.html` + `static/runner.js`) since it has floating panels, a timer, and keyboard handling that's easy to silently break.
 
@@ -38,11 +39,12 @@ bank/
   rw_content.py, rw_content2.py   Hand-written passages/items for skills that can't be parameterized (main idea, inference, rhetorical synthesis, etc.)
   pool.py         Joins math_gen + rw_gen into one GEN dict. build_module() assembles a domain-weighted, difficulty-mixed module in official test order.
                   mock_plan() / full_plan() / session_plan() compute question counts and time limits.
-scoring.py        IRT-style (Rasch + guessing floor) score estimation. Documented in its own docstring as an ESTIMATE, not a real College Board model.
-db.py             SQLite. Tables: students, sessions, modules, items, responses. No ORM, just q()/x() helpers.
-analytics.py      Builds the dashboard payload from db rows + scoring.py. Also renders the SVG ruler/timeline charts server-side (no JS chart lib).
-app.py            Flask routes. This is the thickest file; read module_score_ratio()/advance() for the adaptive routing logic before touching it.
-templates/        Jinja. base.html is the shell. runner.html + static/runner.js is the exam-taking UI, the most complex piece.
+scoring.py        IRT-style (Rasch + guessing floor) score estimation. Documented in its own docstring as an ESTIMATE, not a real College Board model. The docstring lists each evidence rule and the failure it guards against.
+db.py             SQLite. Tables: students, sessions, modules, items, responses, prior_scores, settings, creds. MIGRATIONS adds columns to older files on startup. No ORM, just q()/x() helpers.
+auth.py           Instructor PIN (pbkdf2) + lockout, per-install cookie secret, and a minimal WebAuthn (Touch ID, ES256 only) verifier: small CBOR reader + pure-Python P-256 ECDSA. No crypto dependency.
+analytics.py      Dashboard payload (estimates, timeline incl. reported scores, weekly activity, per-skill mastery, recommendations) + server-side SVG charts.
+app.py            Flask routes: student flow (join, /start diagnostic, practice, runner APIs), instructor (/instructor/*). Read module_score_ratio()/advance() for adaptive routing and api_check() for assist levels before touching them.
+templates/        Jinja. base.html is the shell (nav differs for student/instructor). runner.html + static/runner.js is the exam-taking UI, the most complex piece. _progress.html is the shared progress report (student, tutor, parent views). instructor/ holds the instructor pages.
 static/app.css    Single stylesheet, hand-rolled design system (see the comment block at the top for the rationale, don't restyle without reading it).
 static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN can't load). Has its own expression parser, don't confuse with Desmos integration in runner.js.
 ```
@@ -57,6 +59,10 @@ static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN c
 
 **The compression scheme (`pool.mock_plan()`).** The real Digital SAT is 134 minutes, 98 questions, two modules per section with adaptive routing. `mock_plan(minutes)` scales question count and per-question time by `minutes/134`, uniformly, so pacing and domain weights match the real test at any length. This was explicitly surfaced to the tutor as a designed tradeoff, not an arbitrary shortcut, don't change the scaling approach without understanding why (see the git history / prior conversation context) it was built this way.
 
+**Roles.** `need_student()` for student pages; `need_instructor()` for `/instructor/*` (404 unless the request comes from 127.0.0.1/::1). Results, review, lecture and homework work for either; answer keys and lecture answers are instructor-only (students get Hint / Show answer reveals). In templates `s` is always the signed-in student (drives the nav) and `st` is the student being viewed; don't pass a viewed student as `s` on instructor pages.
+
+**First attempts are what get scored.** `responses.correct` is always the first try. Assist levels (`sessions.assist`: `end`/`hint`/`answer`) only change what the student sees; a second try after a hint goes in `retry_answer`/`retry_correct`. Blanks in a submitted *timed* module count as wrong (`db.response_rows`); blanks in untimed practice are ignored.
+
 **Adaptive routing (`app.py: module_score_ratio`, `advance`).** Module 2 becomes the harder variant if the difficulty-weighted share correct in Module 1 is >= `ROUTE_THRESHOLD` (currently 0.60), else the easier variant. This is a deliberate stand-in for the College Board's undisclosed real model. If you change the threshold or the weighting, update `tests/smoke.py`'s routing assertions to match.
 
 **Scoring is explicitly an estimate.** `scoring.py`'s docstring says so. Don't let score numbers creep into the UI or copy as if they were authoritative; "likely range" and "estimate" language is intentional throughout `analytics.py` and the templates.
@@ -70,6 +76,8 @@ A few Math skills are thinner at specific difficulties: `percentages`, `right_tr
 ## Frontend notes
 
 No build step by design, plain CSS and vanilla JS. `static/app.css`'s header comment documents the design rationale (booklet/answer-sheet/desk metaphor, specific color tokens); don't introduce a generic SaaS look when extending it. KaTeX is vendored locally under `static/vendor/katex/` (no CDN dependency for math rendering). Desmos loads from its CDN with an API key (`DESMOS_API_KEY` env var); `static/calc.js` is the offline fallback and needs to stay functionally equivalent (graphing, pan/zoom, intersections/intercepts) if Desmos changes.
+
+**Onboarding.** New students go to `/start`: the 1-hour diagnostic (`start_diagnostic`, `mock_plan(60)`, `sessions.purpose='diagnostic'`) or entering an official/Bluebook score (`prior_scores`, used as the estimate's prior). `students.onboard` tracks which.
 
 ## Where this is headed
 

@@ -44,29 +44,50 @@ def make(skill, d, seed, spr=False):
     return q
 
 
-def make_safe(skill, d, seed, spr, avoid):
-    """Retry with new seeds until the question builds and is not already in `avoid` (a set of uids)."""
-    last = None
+def make_safe(skill, d, seed, spr, avoid, hard=None):
+    """Build a question whose uid is not in `avoid` (soft: seen recently) and never in `hard` (already in this set).
+    Thin skills can run out of fresh items; then a recently seen item is reused, and if even that would repeat
+    something in the current set, a neighbouring difficulty is tried before giving up."""
+    hard = hard or set()
+    fallback, last = None, None
     for k in range(40):
         try:
             q = make(skill, d, seed + k * 7919, spr)
-            last = q
-            if q['uid'] not in avoid or k >= 25:
-                return q
         except Exception:
             continue
+        last = q
+        if q['uid'] not in avoid and q['uid'] not in hard:
+            return q
+        if fallback is None and q['uid'] not in hard:
+            fallback = q
+    if fallback is not None:
+        return fallback
+    for d2 in sorted(set([0, 1, 2]) - set([d]), key=lambda x: abs(x - d)):
+        for k in range(20):
+            try:
+                q = make(skill, d2, seed + k * 104729, spr)
+            except Exception:
+                continue
+            if q['uid'] not in hard:
+                return q
     if last is None:
         raise RuntimeError('could not build a question for %s' % skill)
     return last
 
 
-def build_module(section, n, variant='m1', rng=None, avoid=None, focus=None, diff=None, spr_frac=.25):
+def build_module(section, n, variant='m1', rng=None, avoid=None, focus=None, diff=None, spr_frac=.25, mix=None, hard=None):
     """Return a list of n built questions ordered like the real test (by domain, easy to hard within a domain).
-    focus: None, ('domain', name) or ('skill', key). diff: None (use variant mix) or 0/1/2 to force one level."""
+    focus: None, ('domain', name), ('skill', key) or ('skills', [keys]). diff: None (use variant mix) or 0/1/2 to force
+    one level. mix: optional {0: w, 1: w, 2: w} difficulty weights (overrides the variant mix, e.g. matched to level).
+    avoid: uids to prefer not to reuse (recent history). hard: uids that must not repeat (this session)."""
     rng = rng or random.Random()
     avoid = set(avoid or [])
+    hard = set(hard or [])
     if focus and focus[0] == 'skill':
         slots = [focus[1]] * n
+    elif focus and focus[0] == 'skills':
+        keys = list(focus[1])
+        slots = [keys[i % len(keys)] for i in range(n)]
     elif focus and focus[0] == 'domain':
         pool = [k for k, s in SKILLS.items() if s['section'] == section and s['domain'] == focus[1]]
         slots = [pool[i % len(pool)] for i in range(n)]
@@ -78,7 +99,8 @@ def build_module(section, n, variant='m1', rng=None, avoid=None, focus=None, dif
             rng.shuffle(pool)
             slots += [pool[i % len(pool)] for i in range(cnt)]
     if diff is None:
-        c = apportion(n, {0: MIX[variant][0], 1: MIX[variant][1], 2: MIX[variant][2]})
+        m = mix or {0: MIX[variant][0], 1: MIX[variant][1], 2: MIX[variant][2]}
+        c = apportion(n, {0: m[0], 1: m[1], 2: m[2]})
         dl = [0] * c[0] + [1] * c[1] + [2] * c[2]
     else:
         dl = [diff] * n
@@ -88,8 +110,8 @@ def build_module(section, n, variant='m1', rng=None, avoid=None, focus=None, dif
     rng.shuffle(spr_flags)
     out = []
     for sk, d, sp in zip(slots, dl, spr_flags):
-        q = make_safe(sk, d, rng.randrange(1, 10 ** 9), sp, avoid)
-        avoid.add(q['uid'])
+        q = make_safe(sk, d, rng.randrange(1, 10 ** 9), sp, avoid, hard)
+        hard.add(q['uid'])
         out.append(q)
     order = DOMAIN_ORDER[section]
     out.sort(key=lambda q: (order.index(q['domain']), q['d']))

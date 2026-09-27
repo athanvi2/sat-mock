@@ -15,13 +15,17 @@
 <header class="topbar">
   <a class="brand" href="{{ url_for('home') }}">Mock SAT</a>
   <nav>
+    {% if s %}
     <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="on"{% endif %}>Home</a>
     <a href="{{ url_for('practice') }}" {% if request.endpoint == 'practice' %}class="on"{% endif %}>Practice</a>
     <a href="{{ url_for('exam') }}" {% if request.endpoint == 'exam' %}class="on"{% endif %}>Mock exam</a>
-    <a href="{{ url_for('dashboard_view') }}" {% if request.endpoint == 'dashboard_view' %}class="on"{% endif %}>Dashboard</a>
-    <a href="{{ url_for('skills_index') }}" {% if request.endpoint in ('skills_index', 'lecture') %}class="on"{% endif %}>Skills and lectures</a>
+    <a href="{{ url_for('dashboard_view') }}" {% if request.endpoint in ('dashboard_view', 'scores') %}class="on"{% endif %}>My progress</a>
+    {% endif %}
+    <a href="{{ url_for('skills_index') }}" {% if request.endpoint in ('skills_index', 'lecture', 'homework') %}class="on"{% endif %}>Skills and lectures</a>
+    {% if inst %}<a href="{{ url_for('instructor_home') }}" class="instlink{% if request.endpoint and request.endpoint.startswith('instructor') %} on{% endif %}">Instructor</a>{% endif %}
   </nav>
-  {% if s %}<span class="who">{{ s['name'] }}<a href="{{ url_for('logout') }}">Switch student</a></span>{% endif %}
+  {% if s %}<span class="who">{{ s['name'] }}<a href="{{ url_for('logout') }}">Sign out</a></span>
+  {% elif inst %}<span class="who">Instructor<a href="{{ url_for('instructor_logout') }}">Lock</a></span>{% endif %}
 </header>
 <main class="frame">
 {% block content %}{% endblock %}

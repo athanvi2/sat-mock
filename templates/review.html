@@ -7,13 +7,14 @@
 <section class="sheet">
   <p class="muted small"><b>Question {{ it.r['idx'] + 1 }}</b> in {{ SECTION_NAME[it.r['section']] }}, Module {{ it.r['module_no'] }}. {{ it.skill['name'] }}, {{ ['easy', 'medium', 'hard'][it.r['d']] }}.
     {% if it.ok %}<span class="pill strong">Correct</span>{% elif it.mine %}<span class="pill miss">Missed</span>{% else %}<span class="pill new">Not answered</span>{% endif %}
-    {% if it.r['time_ms'] %} Time {{ (it.r['time_ms'] / 1000)|round(0)|int }}s.{% endif %}</p>
+    {% if it.r['time_ms'] %} Time {{ (it.r['time_ms'] / 1000)|round(0)|int }}s.{% endif %}
+    {% if it.r['hint_used'] %} Used a hint{% if it.r['retry_answer'] %}; second try {{ it.r['retry_answer'] }} ({{ 'right' if it.r['retry_correct'] else 'wrong' }}){% endif %}.{% endif %}</p>
   {% if it.q['passage'] %}<div class="prose">{{ it.q['passage']|safe }}</div>{% endif %}
   <div class="prose stemq">{{ it.q['q']|safe }}</div>
   {% if it.q['figure'] %}{{ it.q['figure']|fig|safe }}{% endif %}
   {% if it.q['type'] == 'mc' %}
     <div class="prose">{% for c in it.q['choices'] %}{% set L = 'ABCD'[loop.index0] %}
-      <div style="margin:.25rem 0;{% if L == it.q['answer'] %}font-weight:700;color:var(--strong){% elif L == it.mine %}color:var(--miss){% endif %}">{{ L }}. {{ c|safe }}{% if L == it.mine %} (your answer){% endif %}{% if L == it.q['answer'] %} (correct){% endif %}</div>{% endfor %}</div>
+      <div style="margin:.25rem 0;{% if L == it.q['answer'] %}font-weight:700;color:var(--strong){% elif L == it.mine %}color:var(--miss){% endif %}">{{ L }}. {{ c|safe }}{% if L == it.mine %} (first try){% endif %}{% if L == it.q['answer'] %} (correct){% endif %}</div>{% endfor %}</div>
   {% else %}
     <p>Your answer: <b>{{ it.mine or 'none' }}</b>. Correct answer: <b>{{ it.q['answer'] }}</b></p>
   {% endif %}

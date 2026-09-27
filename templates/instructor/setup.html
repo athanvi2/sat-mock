@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Set up the instructor lock{% endblock %}
+{% block content %}
+<section class="sheet" style="max-width:560px;margin:2rem auto">
+  <h1>Instructor lock</h1>
+  <p>Instructor view lets you add and delete students, see every student's progress, and print answer keys. It opens only on this Mac.</p>
+  <p class="muted">First, choose a 6-digit PIN. It is the backup for Touch ID, which you can turn on next.</p>
+  {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+  <form method="post" autocomplete="off">
+    <label class="f" for="p1">6-digit PIN</label>
+    <input type="password" id="p1" name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="pinbox" required autofocus>
+    <label class="f" for="p2">Type it again</label>
+    <input type="password" id="p2" name="pin2" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="pinbox" required>
+    <p style="margin-top:1.2rem"><button class="btn">Save PIN</button></p>
+  </form>
+</section>
+{% endblock %}

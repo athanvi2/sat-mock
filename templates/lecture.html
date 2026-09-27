@@ -3,7 +3,8 @@
 {% block content %}
 <p class="noprint toolbar"><a href="{{ url_for('skills_index') }}">All skills</a> <button class="btn ghost" onclick="window.print()">Print</button>
   <a class="btn ghost" href="{{ url_for('lecture', skill=skill['key']) }}?seed={{ range(1, 9999)|random }}">Different examples</a>
-  <a class="btn" href="{{ url_for('practice') }}?skill={{ skill['key'] }}">Practice this skill</a></p>
+  {% if s %}<a class="btn" href="{{ url_for('practice') }}?skill={{ skill['key'] }}">Practice this skill</a>{% endif %}
+  {% if inst %}<span class="muted small">Instructor view: answers are shown. Students see them behind Hint and Show answer.</span>{% endif %}</p>
 <div class="paper">
   <h1>{{ skill['name'] }}</h1>
   <p class="muted">{{ SECTION_NAME[skill['section']] }}. {{ skill['domain'] }}.</p>
@@ -14,6 +15,7 @@
     {% if skill['formulas'] %}<h2>Formulas</h2><div class="prose">{{ skill['formulas']|safe }}</div>{% endif %}
   </div>
   <h2 class="pagebreak" style="margin-top:1.5rem">Worked examples</h2>
+  {% if not inst %}<p class="small muted">Try each one before you open the hint or the answer.</p>{% endif %}
   {% for q in ex %}
   <div class="prob">
     <p class="muted small"><b>Example {{ loop.index }}</b> ({{ ['easy', 'medium', 'hard'][q['d']] }})</p>
@@ -21,7 +23,14 @@
     <div class="prose stemq">{{ q['q']|safe }}</div>
     {% if q['figure'] %}{{ q['figure']|fig|safe }}{% endif %}
     {% if q['type'] == 'mc' %}<div class="ch">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>{% endif %}
+    {% if inst %}
     <div class="feedback"><b>Answer: {{ q['answer'] }}.</b><br>{{ q['expl']|safe }}</div>
+    {% else %}
+    <div class="reveals noprint">
+      <details class="reveal"><summary>Hint</summary><div class="small">{{ q['hint'] }}</div></details>
+      <details class="reveal"><summary>Show answer</summary><div class="feedback" style="border-top:0;margin-top:0;padding-top:.2rem"><b>Answer: {{ q['answer'] }}.</b><br>{{ q['expl']|safe }}</div></details>
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>

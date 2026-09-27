@@ -3,14 +3,16 @@
 {% block content %}
 <p class="noprint toolbar">
   <button class="btn" onclick="window.print()">Print</button>
-  <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}?seed={{ seed }}&n={{ n }}&key={{ 0 if key else 1 }}">{{ 'Hide answer key' if key else 'Show answer key' }}</a>
-  <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}">New set</a>
-  <span class="muted small">{{ n }} problems, about {{ mins }} minutes of focused work. Difficulty leans {{ 'easier' if acc is none or acc < 0.55 else 'harder' }} based on recent results.</span>
+  {% set sid = st['id'] if (inst and st) else none %}
+  {% if inst %}<a class="btn ghost" href="{{ url_for('homework', skill=skill['key'], student=sid, seed=seed, n=n, key=0 if key else 1) }}">{{ 'Hide answer key' if key else 'Add answer key' }}</a>{% endif %}
+  <a class="btn ghost" href="{{ url_for('homework', skill=skill['key'], student=sid) }}">New set</a>
+  <span class="muted small">{{ n }} problems, about {{ mins }} minutes.{% if st %} Difficulty matched to {{ 'your' if not inst else st['name'].split(' ')[0] + '\'s' }} level:
+    {{ (level[0] * 100)|round|int }}% easy, {{ (level[1] * 100)|round|int }}% medium, {{ (level[2] * 100)|round|int }}% hard.{% endif %}</span>
 </p>
 <div class="paper">
   <div class="cover">
     <h1>Homework: {{ skill['name'] }}</h1>
-    <p>Name: <span class="blank" style="width:14rem"></span> &nbsp; Date: <span class="blank"></span></p>
+    <p>Name: {% if st %}<b>{{ st['name'] }}</b>{% else %}<span class="blank" style="width:14rem"></span>{% endif %} &nbsp; Date: <span class="blank"></span></p>
     <h2>What can you see?</h2>
     <ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
     <h2>How to do this</h2>

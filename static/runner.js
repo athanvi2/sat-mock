@@ -37,6 +37,28 @@
   /* ---------- rendering */
   function isAnswered(it) { return it.answer !== '' && it.answer != null; }
 
+  function canCheck(it) { return isAnswered(it) && !(it.hint && it.answer === it.first); }
+
+  /* Assist levels: 'answer' reveals after the first try; 'hint' gives a hint and one more try after a wrong first try. */
+  function assistBlock(it, q) {
+    if (it.fb) {
+      var f = it.fb, v;
+      if (f.retry !== undefined && f.retry !== null) {
+        v = f.retry_correct ? 'Right on the second try' : 'Not quite, even after the hint';
+        v += '. First try: ' + esc(f.first) + (f.retry ? ', second try: ' + esc(f.retry) : '') + '.';
+      } else v = f.correct ? 'Correct' : 'Not quite';
+      var ok = f.retry !== undefined && f.retry !== null ? f.retry_correct : f.correct;
+      return '<div class="feedback"><div class="verdict ' + (ok ? 'ok' : 'no') + '">' + v +
+        (q.type === 'spr' && !ok ? ' Correct answer: ' + esc(f.key) + '.' : '') + '</div>' + f.expl +
+        (f.retry !== undefined && f.retry !== null ? '<p class="hint" style="margin-top:.6rem">Only the first try counts toward your score estimate.</p>' : '') + '</div>';
+    }
+    var s = '';
+    if (it.hint) s += '<div class="hintbox" role="status"><b>Not quite. Here is a hint.</b><br>' + it.hint + '<br><span class="small muted">Try once more. ' +
+      (q.type === 'mc' ? 'Your first choice is crossed out.' : 'Edit your answer.') + '</span></div>';
+    s += '<p><button type="button" class="btn" id="check"' + (canCheck(it) ? '' : ' disabled') + '>' + (it.hint ? 'Check again' : 'Check answer') + '</button></p>';
+    return s;
+  }
+
   function render() {
     var it = items[cur], q = it.q, left = $('left'), right = $('right'), pages = $('pages');
     var rw = R.section === 'rw';
@@ -58,7 +80,7 @@
       body += '<div class="opts' + (elim ? ' elim' : '') + '" role="radiogroup">';
       q.choices.forEach(function (c, i) {
         var L = LETTERS[i], sel = it.answer === L, struck = it.struck.indexOf(L) >= 0, cls = 'opt' + (sel ? ' sel' : '') + (struck ? ' struck' : '');
-        if (it.fb) { if (L === it.fb.key) cls += ' right'; else if (sel) cls += ' wrong'; }
+        if (it.fb) { if (L === it.fb.key) cls += ' right'; else if (sel || L === it.fb.first || L === it.fb.retry) cls += ' wrong'; }
         body += '<button type="button" class="' + cls + '" data-l="' + L + '" role="radio" aria-checked="' + sel + '"><span class="bub">' + L + '</span><span class="txt">' + c + '</span>' +
           '<span class="x" data-x="' + L + '">' + (struck ? 'Undo' : 'Cross out') + '</span></button>';
       });
@@ -67,11 +89,7 @@
       body += '<div class="sprbox"><label for="spr" style="font-weight:600">Your answer</label><br><input id="spr" type="text" inputmode="text" autocomplete="off" value="' + esc(it.answer || '') + '" ' + (it.fb ? 'disabled' : '') + '>' +
         '<div class="prev" id="sprprev"></div><p class="hint">Enter a whole number, decimal, or fraction such as 3/4. Negative numbers use a minus sign.</p></div>';
     }
-    if (R.feedback) {
-      if (!it.fb) body += '<p><button type="button" class="btn" id="check"' + (isAnswered(it) ? '' : ' disabled') + '>Check answer</button></p>';
-      else body += '<div class="feedback"><div class="verdict ' + (it.fb.correct ? 'ok' : 'no') + '">' + (it.fb.correct ? 'Correct' : 'Not quite') +
-        (q.type === 'spr' && !it.fb.correct ? '. Correct answer: ' + esc(it.fb.key) : '') + '</div>' + it.fb.expl + '</div>';
-    }
+    if (R.assist !== 'end') body += assistBlock(it, q);
     right.innerHTML = body;
     typeset(left); typeset(right);
     $('qcur').textContent = cur + 1;
@@ -107,19 +125,28 @@
         if (v) { var n = parse(v); out = n === null ? 'Not a valid answer yet' : 'Reads as ' + n; }
         $('sprprev').textContent = out;
       };
-      spr.oninput = function () { it.answer = spr.value.trim(); prev(); var c = $('check'); if (c) c.disabled = !isAnswered(it); clearTimeout(spr._t); spr._t = setTimeout(function () { save(it); }, 500); };
+      spr.oninput = function () { it.answer = spr.value.trim(); prev(); var c = $('check'); if (c) c.disabled = !canCheck(it); clearTimeout(spr._t); spr._t = setTimeout(function () { save(it); }, 500); };
       spr.onblur = function () { save(it); };
       prev();
     }
     var chk = $('check');
     if (chk) chk.onclick = function () {
       var d = Date.now() - enter; enter = Date.now();
+      chk.disabled = true;
       post(R.urls.check, {item_id: it.id, answer: it.answer, time_ms: d}).then(function (j) {
-        if (!j) return; it.fb = {correct: j.correct, key: j.key, expl: j.expl}; it.checked = true; render();
+        if (!j || !j.ok) { chk.disabled = false; return; }
+        if (j.reveal) { it.fb = j.reveal; it.checked = true; it.hint = null; }
+        else if (j.hint) {
+          it.hint = j.hint; it.first = j.first; it.attempts = 1;
+          if (q_type(it) === 'mc') { if (it.struck.indexOf(j.first) < 0) it.struck.push(j.first); it.answer = ''; save(it); }
+        }
+        render();
       });
     };
     typeset($('right'));
   }
+
+  function q_type(it) { return it.q.type; }
 
   function parse(v) {
     v = v.replace(/,/g, '').replace(/\s/g, '');

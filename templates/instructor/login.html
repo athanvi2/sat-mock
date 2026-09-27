@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Instructor{% endblock %}
+{% block content %}
+<section class="sheet" style="max-width:480px;margin:2rem auto">
+  <h1>Instructor</h1>
+  {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+  {% if touch %}
+  <p><button type="button" class="btn big" id="tid" hidden>Unlock with Touch ID</button></p>
+  <p class="errline" id="tiderr" hidden></p>
+  <p class="muted small" id="tidor" hidden>Or use your PIN.</p>
+  {% endif %}
+  <form method="post" autocomplete="off">
+    <input type="hidden" name="next" value="{{ nxt }}">
+    <label class="f" for="pin">6-digit PIN</label>
+    <input type="password" id="pin" name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="pinbox" required>
+    <p style="margin-top:1rem"><button class="btn ghost">Unlock</button></p>
+  </form>
+  <p class="hint">Instructor view locks itself after 2 hours without use.</p>
+</section>
+{% endblock %}
+{% block scripts %}
+{% if touch %}
+<script src="{{ url_for('static', filename='webauthn.js') }}"></script>
+<script>
+(function () {
+  if (!TouchID.supported()) { document.getElementById('pin').focus(); return; }
+  var b = document.getElementById('tid'), e = document.getElementById('tiderr');
+  b.hidden = false; document.getElementById('tidor').hidden = false;
+  b.onclick = function () {
+    e.hidden = true; b.disabled = true;
+    TouchID.signIn('/instructor/webauthn/').then(function () { location = {{ nxt|tojson }}; })
+      .catch(function (err) { b.disabled = false; e.hidden = false; e.textContent = (err && err.name === 'NotAllowedError') ? 'Touch ID was cancelled.' : 'Touch ID did not work: ' + err.message; });
+  };
+})();
+</script>
+{% endif %}
+{% endblock %}

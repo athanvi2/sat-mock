@@ -60,7 +60,7 @@
 <script>
 window.RUN = {
   moduleId: {{ m['id'] }}, items: {{ payload|safe }}, remaining: {{ remaining if remaining is not none else 'null' }},
-  limit: {{ m['limit_sec'] or 0 }}, warn: {{ m['warn_sec'] or 0 }}, feedback: {{ 1 if sess['feedback'] else 0 }},
+  limit: {{ m['limit_sec'] or 0 }}, warn: {{ m['warn_sec'] or 0 }}, assist: "{{ sess['assist'] or 'end' }}",
   section: "{{ m['section'] }}", exam: {{ 1 if sess['mode'] == 'exam' else 0 }},
   desmosKey: "{{ desmos_key }}", urls: {save: "{{ url_for('api_save') }}", check: "{{ url_for('api_check') }}", finish: "{{ url_for('api_finish') }}"}
 };

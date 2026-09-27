@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Your starting point{% endblock %}
+{% block content %}
+<h1>Welcome, {{ s['name'].split(' ')[0] }}</h1>
+<p class="muted" style="max-width:62ch">First we need a picture of where you are today. It decides what you practice, so the time goes where it counts. Pick one.</p>
+<div class="cols">
+  <section class="sheet choicecard">
+    <span class="pill new">Recommended</span>
+    <h2 style="margin-top:.6rem">Take the 1-hour diagnostic</h2>
+    <p>A shorter version of the real test: Reading and Writing, then Math, two modules each, and the second module adapts to how the first went.</p>
+    <ul class="plain small" style="padding-left:1.1rem">
+      <li>{{ plan['sizes']['rw']['n'] * 2 }} Reading and Writing and {{ plan['sizes']['math']['n'] * 2 }} Math questions, about {{ plan['total_min']|round|int }} minutes</li>
+      <li>Same pace per question as the real SAT</li>
+      <li>Calculator and reference sheet for Math</li>
+      <li>No answers until the end, like the real thing</li>
+    </ul>
+    <p class="hint">Find a quiet spot. You can take a short break between sections.</p>
+    <form method="post"><input type="hidden" name="choice" value="diagnostic"><button class="btn big">Start the diagnostic</button></form>
+  </section>
+  <section class="sheet choicecard">
+    <h2>I already have a score</h2>
+    <p>If you have taken the SAT, a PSAT, or a full Bluebook practice test, enter those section scores. A real score is the best starting point there is.</p>
+    <p class="small muted">Recent scores count more. An older PSAT still helps, just less.</p>
+    <p><a class="btn ghost" href="{{ url_for('scores') }}?from=start">Enter a score</a></p>
+    <form method="post" style="margin-top:1.4rem"><input type="hidden" name="choice" value="later">
+      <button class="linkbtn">Not now, take me to the home page</button></form>
+  </section>
+</div>
+{% endblock %}

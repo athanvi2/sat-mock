@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Earlier scores{% endblock %}
+{% block content %}
+<h1>Earlier scores</h1>
+<p class="muted" style="max-width:66ch">Official SAT or PSAT scores, or a full Bluebook practice test. The estimate starts from these, then updates as you practice.
+A score from last month counts much more than one from two years ago.</p>
+<div class="cols">
+  <section class="sheet">
+    <h2>Add a score</h2>
+    {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+    <form method="post">
+      <input type="hidden" name="from" value="{{ src }}">
+      <label class="f" for="t">Which test</label>
+      <select name="test" id="t" required>
+        {% for t, rng in tests.items() %}<option value="{{ t }}" data-min="{{ rng[0] }}" data-max="{{ rng[1] }}" {% if f.get('test') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+      <label class="f" for="d">Test date</label>
+      <input type="date" name="taken" id="d" max="{{ today }}" value="{{ f.get('taken', '') }}" required>
+      <div class="cols" style="gap:1rem">
+        <div><label class="f" for="rw">Reading and Writing</label>
+          <input type="number" name="rw" id="rw" step="10" min="120" max="800" value="{{ f.get('rw', '') }}" required></div>
+        <div><label class="f" for="mt">Math</label>
+          <input type="number" name="math" id="mt" step="10" min="120" max="800" value="{{ f.get('math', '') }}" required></div>
+      </div>
+      <p class="hint" id="rangehint"></p>
+      <p style="margin-top:1rem"><button class="btn">Save score</button>
+      {% if src == 'start' %}<a class="btn ghost" href="{{ url_for('start') }}">Back</a>{% endif %}</p>
+    </form>
+  </section>
+  <section class="sheet">
+    <h2>On file</h2>
+    {% if rows %}
+    <table class="list"><thead><tr><th>Test</th><th>Date</th><th class="r">R&amp;W</th><th class="r">Math</th><th class="r">Total</th><th></th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td>{{ r['test'] }}</td><td>{{ r['taken'] }}</td><td class="r">{{ r['rw'] }}</td><td class="r">{{ r['math'] }}</td><td class="r"><b>{{ r['rw'] + r['math'] }}</b></td>
+      <td class="r"><form method="post" action="{{ url_for('delete_score', pid=r['id']) }}"><button class="linkbtn small">Remove</button></form></td></tr>{% endfor %}</tbody></table>
+    {% else %}<p class="muted">Nothing yet.</p>{% endif %}
+    <p class="small muted" style="margin-top:1rem">PSAT scores sit on the same scale as the SAT, so they compare directly; the PSAT just tops out lower.</p>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var t = document.getElementById('t'), h = document.getElementById('rangehint');
+  function sync() {
+    var o = t.selectedOptions[0], lo = o.getAttribute('data-min'), hi = o.getAttribute('data-max');
+    ['rw', 'mt'].forEach(function (id) { var e = document.getElementById(id); e.min = lo; e.max = hi; });
+    h.textContent = 'Each section score is between ' + lo + ' and ' + hi + ', in steps of 10.';
+  }
+  t.addEventListener('change', sync); sync();
+})();
+</script>
+{% endblock %}

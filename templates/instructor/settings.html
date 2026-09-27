@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Instructor settings{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('instructor_home') }}">&larr; Students</a></p>
+<h1>Settings</h1>
+{% if first %}<p role="status" class="okline">PIN saved. Turn on Touch ID below so you rarely need it.</p>{% endif %}
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+<div class="cols">
+  <section class="sheet">
+    <h2>Touch ID</h2>
+    {% if creds %}
+      {% for c in creds %}<p class="toolbar"><span>{{ c['label'] }}, added {{ c['created']|ago }}</span>
+        <form method="post"><input type="hidden" name="act" value="forget"><input type="hidden" name="id" value="{{ c['id'] }}"><button class="linkbtn small">Remove</button></form></p>{% endfor %}
+    {% else %}<p class="muted">Not set up.</p>{% endif %}
+    <p><button type="button" class="btn" id="enroll" hidden>{{ 'Add Touch ID again' if creds else 'Turn on Touch ID' }}</button></p>
+    <p class="errline" id="enerr" hidden></p>
+    <p class="hint" id="enhint">Works in Safari or Chrome on this Mac, at http://localhost:{{ request.host.split(':')[1] if ':' in request.host else '' }}. Other devices use the PIN.</p>
+  </section>
+  <section class="sheet">
+    <h2>Change PIN</h2>
+    <form method="post" autocomplete="off"><input type="hidden" name="act" value="pin">
+      <label class="f" for="o">Current PIN</label><input type="password" id="o" name="old" inputmode="numeric" maxlength="6" class="pinbox" required>
+      <label class="f" for="n1">New 6-digit PIN</label><input type="password" id="n1" name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="pinbox" required>
+      <label class="f" for="n2">Again</label><input type="password" id="n2" name="pin2" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="pinbox" required>
+      <p style="margin-top:1rem"><button class="btn ghost">Change PIN</button></p>
+    </form>
+  </section>
+</div>
+<div class="cols">
+  <section class="sheet">
+    <h2>Student address</h2>
+    {% for a in lan %}<p class="lanurl">{{ a }}</p>{% endfor %}
+  </section>
+  <section class="sheet">
+    <h2>Backups</h2>
+    <p class="small muted">Everything lives in one file: <code>{{ db_path }}</code>. A copy is saved automatically before any student is deleted.</p>
+    <form method="post"><input type="hidden" name="act" value="backup"><button class="btn ghost">Back up now</button></form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='webauthn.js') }}"></script>
+<script>
+(function () {
+  var b = document.getElementById('enroll'), e = document.getElementById('enerr');
+  if (!TouchID.supported()) { document.getElementById('enhint').textContent = 'Touch ID needs Safari or Chrome on this Mac at http://localhost. This browser or address does not allow it.'; return; }
+  b.hidden = false;
+  b.onclick = function () {
+    e.hidden = true; b.disabled = true;
+    TouchID.enroll('/instructor/webauthn/').then(function () { location = location.pathname; })
+      .catch(function (err) { b.disabled = false; e.hidden = false; e.textContent = (err && err.name === 'NotAllowedError') ? 'Cancelled.' : (err && err.name === 'InvalidStateError') ? 'Touch ID is already set up on this Mac.' : 'Could not set up Touch ID: ' + err.message; });
+  };
+})();
+</script>
+{% endblock %}

@@ -2,7 +2,11 @@
 {% block title %}Results{% endblock %}
 {% block content %}
 <h1>{{ sess['label'] }}</h1>
-<p class="muted">{{ sess['created']|dt }}. {{ right }} of {{ total_q }} correct.</p>
+<p class="muted">{% if inst %}{{ st['name'] }}. {% endif %}{{ sess['created']|dt }}. {{ right }} of {{ total_q }} correct on the first try.
+{% if assists['hints'] %}Hints used on {{ assists['hints'] }} question{{ '' if assists['hints'] == 1 else 's' }}; {{ assists['fixed'] }} of those right on the second try.{% endif %}</p>
+{% if sess['purpose'] == 'diagnostic' and not inst %}<section class="sheet callout"><h2>Diagnostic done. Nice work.</h2>
+<p>This is your starting point. Your home page now recommends what to practice first, based on where the points are.</p>
+<p><a class="btn" href="{{ url_for('home') }}">See my plan</a></p></section>{% endif %}
 <div class="cols">
   <section class="sheet">
     <h2>Modules</h2>
@@ -20,12 +24,13 @@
   <section class="sheet">
     <h2>This session on its own</h2>
     <p class="muted small">A single session has few questions, so treat these ranges as loose.</p>
-    <p style="margin:.2rem 0">Reading and Writing: <b>{% if srw['n'] %}{{ srw['lo'] }} to {{ srw['hi'] }}{% else %}not taken{% endif %}</b></p>
-    <p style="margin:.2rem 0">Math: <b>{% if smt['n'] %}{{ smt['lo'] }} to {{ smt['hi'] }}{% else %}not taken{% endif %}</b></p>
+    <p style="margin:.2rem 0">Reading and Writing: <b>{% if not srw['n'] %}not taken{% elif srw['has_data'] %}{{ srw['lo'] }} to {{ srw['hi'] }}{% else %}too few questions to say{% endif %}</b></p>
+    <p style="margin:.2rem 0">Math: <b>{% if not smt['n'] %}not taken{% elif smt['has_data'] %}{{ smt['lo'] }} to {{ smt['hi'] }}{% else %}too few questions to say{% endif %}</b></p>
     {% if weak %}
     <h3 style="margin-top:1.2rem">Homework focus</h3>
     <p>The biggest gap this time was <b>{{ SKILLS[weak]['name'] }}</b>.</p>
-    <p><a class="btn" href="{{ url_for('homework', skill=weak) }}">Make the homework sheet</a></p>
+    <p><a class="btn" href="{{ url_for('homework', skill=weak, student=st['id']) if inst else url_for('homework', skill=weak) }}">Make the homework sheet</a>
+       <a class="btn ghost" href="{{ url_for('lecture', skill=weak) }}">Lecture sheet</a></p>
     {% endif %}
   </section>
 </div>
@@ -48,7 +53,7 @@
 <section class="sheet">
   <h2>Overall estimate so far</h2>
   {{ ruler|safe }}
-  <p class="muted small">The highlighted stroke is the likely range, the dark tick is the best single guess, and the blue triangle marks the goal. Based on {{ nrows }} answers ({{ conf }}). This is an estimate from a simple model, not an official score.</p>
-  <p><a href="{{ url_for('dashboard_view') }}">Open the dashboard</a></p>
+  <p class="muted small">The highlighted stroke is the likely range, the dark tick is the best single guess, and the blue triangle marks the goal. Based on {{ nrows }} answers{% if tot['has_data'] %} ({{ conf }}){% endif %}. This is an estimate from a simple model, not an official score.</p>
+  <p>{% if inst %}<a href="{{ url_for('instructor_student', stid=st['id']) }}">Back to {{ st['name'] }}</a>{% else %}<a href="{{ url_for('dashboard_view') }}">See my progress</a>{% endif %}</p>
 </section>
 {% endblock %}

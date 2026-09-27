@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Instructor{% endblock %}
+{% block content %}
+<div class="toolbar" style="align-items:baseline">
+  <h1 style="margin:0">Students</h1>
+  <span style="margin-left:auto" class="toolbar"><a class="btn ghost" href="{{ url_for('skills_index') }}">Lecture sheets</a>
+    <a class="btn ghost" href="{{ url_for('instructor_settings') }}">Settings</a></span>
+</div>
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+
+<section class="sheet" style="margin-top:1rem">
+  {% if roster %}
+  <div class="tablewrap"><table class="list">
+    <thead><tr><th>Student</th><th>Starting point</th><th class="r">Estimate</th><th class="r">Goal</th><th class="r">This week</th><th>Last active</th><th></th></tr></thead>
+    <tbody>{% for r in roster %}{% set st = r.s %}
+      <tr><td><a href="{{ url_for('instructor_student', stid=st['id']) }}"><b>{{ st['name'] }}</b></a>{% if st['grade'] %} <span class="muted small">grade {{ st['grade'] }}</span>{% endif %}</td>
+        <td>{% if st['onboard'] == 'diagnostic' %}<span class="pill strong">Diagnostic done</span>{% elif st['onboard'] == 'prior' %}<span class="pill strong">Score on file</span>{% else %}<span class="pill miss">Not yet</span>{% endif %}</td>
+        <td class="r">{% if r.total['has_data'] %}{{ r.total['lo'] }}&ndash;{{ r.total['hi'] }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+        <td class="r">{{ st['goal_total'] }}</td>
+        <td class="r">{{ r.q_week }} q</td>
+        <td>{{ r.last|ago }}</td>
+        <td class="r"><a href="{{ url_for('instructor_student', stid=st['id']) }}">Open</a></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">No students yet. They can add themselves from the welcome screen on their own device, or you can add one below.</p>
+  {% endif %}
+</section>
+
+<div class="cols">
+  <section class="sheet">
+    <h2>How students connect</h2>
+    <p>On the same Wi-Fi, students open:</p>
+    {% for a in lan %}<p class="lanurl">{{ a }}</p>{% endfor %}
+    <p class="hint">If a device cannot connect, macOS may be blocking it: System Settings &rarr; Network &rarr; Firewall &rarr; allow Python. Both addresses point to this Mac; the first survives Wi-Fi address changes.</p>
+  </section>
+  <section class="sheet">
+    <h2>Add a student</h2>
+    <form method="post" action="{{ url_for('instructor_new_student') }}" autocomplete="off">
+      <label class="f" for="nn">Name</label><input type="text" id="nn" name="name" maxlength="40" required>
+      <div class="cols" style="gap:1rem">
+        <div><label class="f" for="np">4-digit PIN</label><input type="password" id="np" name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="pinbox" required></div>
+        <div><label class="f" for="ng">Goal</label><input type="number" id="ng" name="goal" value="1200" min="400" max="1600" step="10"></div>
+      </div>
+      <label class="f" for="npa">Parent or guardian (optional)</label><input type="text" id="npa" name="parent">
+      <p style="margin-top:1rem"><button class="btn">Add student</button></p>
+    </form>
+  </section>
+</div>
+{% endblock %}

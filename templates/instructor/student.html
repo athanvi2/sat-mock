@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{{ st['name'] }}{% endblock %}
+{% block content %}
+<p class="noprint"><a href="{{ url_for('instructor_home') }}">&larr; All students</a></p>
+<div class="toolbar" style="align-items:baseline">
+  <h1 style="margin:0">{{ st['name'] }}</h1>
+  <span class="muted">{% if st['grade'] %}Grade {{ st['grade'] }}. {% endif %}Goal {{ st['goal_total'] }}.{% if st['test_date'] %} SAT on {{ st['test_date'] }}.{% endif %} Joined {{ st['created']|ago }}.</span>
+  <span style="margin-left:auto" class="toolbar"><a class="btn" href="{{ url_for('instructor_student', stid=st['id'], view='parent') }}">Parent summary</a></span>
+</div>
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+<div style="margin-top:1rem"></div>
+{% include '_progress.html' %}
+
+<section class="sheet">
+  <h2>Sessions</h2>
+  {% if sessions %}
+  <div class="tablewrap"><table class="list">
+    <thead><tr><th>When</th><th>What</th><th>Help</th><th>Status</th><th></th></tr></thead>
+    <tbody>{% for x in sessions %}
+      <tr><td>{{ x['created']|dt }}</td><td>{{ x['label'] }}{% if x['purpose'] == 'diagnostic' %} <span class="pill new">Diagnostic</span>{% endif %}</td>
+        <td class="small">{{ {'end': 'Locked', 'hint': 'Hints', 'answer': 'Answers'}.get(x['assist'], '') }}{% if not x['timed'] %}, untimed{% endif %}</td>
+        <td>{% if x['finished'] %}Finished{% else %}In progress{% endif %}</td>
+        <td class="r"><a href="{{ url_for('results', sid=x['id']) }}">Results</a> &middot; <a href="{{ url_for('review', sid=x['id']) }}">Every question</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">No sessions yet.</p>{% endif %}
+</section>
+
+<div class="cols">
+  <section class="sheet">
+    <h2>Official and Bluebook scores</h2>
+    {% if d['priors'] %}<table class="list"><tbody>{% for p in d['priors'] %}
+      <tr><td>{{ p['test'] }}</td><td>{{ p['taken'] }}</td><td class="r">{{ p['rw'] }} + {{ p['math'] }} = <b>{{ p['rw'] + p['math'] }}</b></td>
+        <td class="r"><form method="post" action="{{ url_for('delete_score', pid=p['id']) }}"><button class="linkbtn small">Remove</button></form></td></tr>{% endfor %}</tbody></table>
+    {% else %}<p class="muted">None on file.</p>{% endif %}
+    <form method="post" action="{{ url_for('instructor_add_score', stid=st['id']) }}" style="margin-top:.8rem">
+      <div class="cols" style="gap:.8rem">
+        <div><label class="f" for="pt">Test</label><select id="pt" name="test">{% for t in tests %}<option>{{ t }}</option>{% endfor %}</select></div>
+        <div><label class="f" for="pd">Date</label><input type="date" id="pd" name="taken" required></div>
+      </div>
+      <div class="cols" style="gap:.8rem">
+        <div><label class="f" for="prw">Reading and Writing</label><input type="number" id="prw" name="rw" step="10" required></div>
+        <div><label class="f" for="pm">Math</label><input type="number" id="pm" name="math" step="10" required></div>
+      </div>
+      <p style="margin-top:.8rem"><button class="btn ghost">Add score</button></p>
+    </form>
+  </section>
+  <section class="sheet">
+    <h2>Details</h2>
+    <form method="post" action="{{ url_for('instructor_edit_student', stid=st['id']) }}" autocomplete="off">
+      <label class="f" for="en">Name</label><input type="text" id="en" name="name" value="{{ st['name'] }}" maxlength="40">
+      <div class="cols" style="gap:.8rem">
+        <div><label class="f" for="eg">Goal</label><input type="number" id="eg" name="goal" value="{{ st['goal_total'] }}" min="400" max="1600" step="10"></div>
+        <div><label class="f" for="egr">Grade</label><input type="text" id="egr" name="grade" value="{{ st['grade'] or '' }}" style="min-width:6rem"></div>
+      </div>
+      <label class="f" for="et">SAT date</label><input type="date" id="et" name="test_date" value="{{ st['test_date'] or '' }}">
+      <label class="f" for="ep">Parent or guardian</label><input type="text" id="ep" name="parent" value="{{ st['parent_name'] or '' }}">
+      <label class="f" for="epin">Reset PIN (leave blank to keep)</label><input type="password" id="epin" name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="pinbox">
+      <p style="margin-top:1rem"><button class="btn ghost">Save changes</button></p>
+    </form>
+  </section>
+</div>
+
+<section class="sheet danger">
+  <h2>Delete {{ st['name'] }}</h2>
+  <p>Removes the student and every session, answer, and score. A backup of the whole database is saved first, in the <code>backups</code> folder.</p>
+  <form method="post" action="{{ url_for('instructor_delete_student', stid=st['id']) }}" class="toolbar" autocomplete="off">
+    <label for="cf" class="sr">Type the name to confirm</label>
+    <input type="text" id="cf" name="confirm" placeholder="Type {{ st['name'] }} to confirm" required>
+    <button class="btn dangerbtn">Delete student</button>
+  </form>
+</section>
+{% endblock %}

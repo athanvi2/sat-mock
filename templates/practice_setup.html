@@ -2,7 +2,7 @@
 {% block title %}Practice{% endblock %}
 {% block content %}
 <h1>Practice</h1>
-<p class="muted">Untimed or timed, with the answer and explanation after every question. Questions are labelled by module the way the real test is.</p>
+<p class="muted">Questions are built like the real test. Choose how much help you want while you work.</p>
 <form method="post" class="sheet" id="pf">
   <fieldset>
     <legend>Section</legend>
@@ -13,8 +13,9 @@
   </fieldset>
   <fieldset>
     <legend>What to practice</legend>
-    <label class="f" for="what" style="margin-top:0">Module or topic</label>
+    <label class="f" for="what" style="margin-top:0">Topic or module</label>
     <select name="what" id="what">
+      <option value="rec" {% if pre.get('what') == 'rec' %}selected{% endif %}>Recommended for me</option>
       <optgroup label="By module (same layout as the real test)">
         <option value="m1">Module 1: mixed difficulty</option>
         <option value="easy">Module 2, easier version</option>
@@ -30,10 +31,16 @@
       </optgroup>
       {% endfor %}
     </select>
-    <label class="f" for="difficulty">Difficulty (topic practice only)</label>
-    <select name="difficulty" id="difficulty">
-      <option value="mixed">Mixed</option><option value="0">Easy</option><option value="1">Medium</option><option value="2">Hard</option>
-    </select>
+    {% for sec in ('math', 'rw') %}
+    <p class="hint recnote" data-sec="{{ sec }}">Recommended now: {% for r in recs[sec] %}<b>{{ r['name'] }}</b>{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+    {% endfor %}
+    <div id="diffrow">
+      <label class="f" for="difficulty">Difficulty</label>
+      <select name="difficulty" id="difficulty">
+        <option value="auto">Matched to my level</option><option value="0">Easy</option><option value="1">Medium</option><option value="2">Hard</option>
+      </select>
+      <p class="hint">"Matched to my level" aims for questions you get right about 7 times in 10: hard enough to learn from.</p>
+    </div>
   </fieldset>
   <fieldset>
     <legend>Length</legend>
@@ -44,14 +51,19 @@
     </div>
   </fieldset>
   <fieldset>
-    <legend>Settings</legend>
+    <legend>Help while you work</legend>
+    <div class="choicebar" style="flex-direction:column;align-items:stretch">
+      <label><input type="radio" name="assist" value="hint" checked><b>Hint first.</b> If your first try is wrong, you get a hint and one more try, then the answer and explanation.</label>
+      <label><input type="radio" name="assist" value="answer"><b>Show the answer.</b> After your first try, see the answer and explanation.</label>
+      <label><input type="radio" name="assist" value="end"><b>Locked until the end.</b> Like the real test: answers and explanations after you submit.</label>
+    </div>
+    <p class="hint">Only your first try counts toward your score estimate, whichever you pick.</p>
+  </fieldset>
+  <fieldset>
+    <legend>Timing</legend>
     <div class="choicebar">
       <label><input type="radio" name="timed" value="1" checked>Timed at real test pace</label>
       <label><input type="radio" name="timed" value="0">No time limit</label>
-    </div>
-    <div class="choicebar">
-      <label><input type="radio" name="feedback" value="1" checked>Check each answer right away</label>
-      <label><input type="radio" name="feedback" value="0">Answers at the end</label>
     </div>
   </fieldset>
   <button class="btn big">Start practice</button>
@@ -60,7 +72,7 @@
 {% block scripts %}
 <script>
 (function () {
-  var what = document.getElementById('what');
+  var what = document.getElementById('what'), diffrow = document.getElementById('diffrow');
   var secs = document.querySelectorAll('input[name=section]');
   function sync() {
     var sec = document.querySelector('input[name=section]:checked').value;
@@ -68,9 +80,13 @@
       var on = o.getAttribute('data-sec') === sec;
       o.hidden = !on; o.disabled = !on;
     });
-    if (what.selectedOptions[0] && what.selectedOptions[0].disabled) what.value = 'm1';
+    Array.prototype.forEach.call(document.querySelectorAll('.recnote'), function (p) { p.hidden = p.getAttribute('data-sec') !== sec || what.value !== 'rec'; });
+    if (what.selectedOptions[0] && what.selectedOptions[0].disabled) what.value = 'rec';
+    var v = what.value;
+    diffrow.hidden = !(v === 'rec' || v.indexOf('skill:') === 0 || v.indexOf('domain:') === 0);
   }
   Array.prototype.forEach.call(secs, function (r) { r.addEventListener('change', sync); });
+  what.addEventListener('change', sync);
   var pre = new URLSearchParams(location.search).get('skill');
   if (pre) { var o = what.querySelector('option[value="skill:' + pre + '"]'); if (o) { document.querySelector('input[name=section][value=' + o.getAttribute('data-sec') + ']').checked = true; what.value = o.value; } }
   sync();

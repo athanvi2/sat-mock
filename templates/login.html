@@ -1,38 +1,54 @@
 {% extends 'base.html' %}
-{% block title %}Choose a student{% endblock %}
+{% block title %}Welcome{% endblock %}
+{% block bodyclass %}welcome{% endblock %}
 {% block chrome %}
-<main class="frame" style="max-width:760px">
-  <h1>Mock SAT</h1>
-  <p class="muted">Practice and full-length mock tests that follow the format of the Digital SAT. Everything runs on this computer.</p>
-  {% if err %}<p role="alert" style="color:var(--miss);font-weight:600">{{ err }}</p>{% endif %}
-  <div class="cols">
-    <section class="sheet">
-      <h2>Sign in</h2>
-      <form method="post" action="{{ url_for('login') }}">
-        <label class="f" for="name">Student</label>
-        <select name="name" id="name" required>
-          {% for st in students %}<option>{{ st['name'] }}</option>{% endfor %}
-        </select>
-        <label class="f" for="pin">PIN (if one was set)</label>
-        <input type="password" name="pin" id="pin" inputmode="numeric" autocomplete="off">
-        <p style="margin-top:1rem"><button class="btn" {% if not students %}disabled{% endif %}>Sign in</button></p>
-        {% if not students %}<p class="hint">No students yet. Add one on the right.</p>{% endif %}
-      </form>
-    </section>
-    <section class="sheet">
-      <h2>Add a student</h2>
-      <form method="post" action="{{ url_for('new_student') }}">
-        <label class="f" for="nn">Name</label>
-        <input type="text" name="name" id="nn" required>
-        <label class="f" for="pp">Parent or guardian name (optional)</label>
-        <input type="text" name="parent" id="pp">
-        <label class="f" for="gg">Goal total score</label>
-        <input type="number" name="goal" id="gg" value="1200" min="400" max="1600" step="10">
-        <label class="f" for="pn">PIN (optional, 4 digits)</label>
-        <input type="password" name="pin" id="pn" inputmode="numeric" maxlength="8" autocomplete="off">
-        <p style="margin-top:1rem"><button class="btn ghost">Add student</button></p>
-      </form>
-    </section>
-  </div>
+<main class="frame wel">
+  <section class="wel-cover">
+    <p class="wel-kicker">Digital SAT prep</p>
+    <h1>Let&rsquo;s find your <span class="hlmark">starting point</span>, then build from there.</h1>
+    <p class="wel-lede">Practice here works like the real test in Bluebook: two sections, adaptive modules, the same timer, calculator, and reference sheet.</p>
+    <ol class="wel-steps">
+      <li><span class="bubble done">1</span><div><b>Add yourself</b><br><span class="muted">Your name and a 4-digit PIN. About 30 seconds.</span></div></li>
+      <li><span class="bubble">2</span><div><b>Take a 1-hour diagnostic</b><br><span class="muted">Or enter a PSAT/SAT score you already have.</span></div></li>
+      <li><span class="bubble">3</span><div><b>Practice what moves your score</b><br><span class="muted">Hints when you want them, progress you can see.</span></div></li>
+    </ol>
+    <p><a class="btn big" href="{{ url_for('join') }}">I&rsquo;m new here</a></p>
+  </section>
+
+  <section class="sheet wel-signin" aria-labelledby="si">
+    <h2 id="si">Welcome back</h2>
+    {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+    {% if students %}
+    <form method="post" action="{{ url_for('login') }}" id="sf">
+      <p class="muted small" style="margin-bottom:.5rem">Tap your name.</p>
+      <div class="nametiles" role="radiogroup" aria-label="Your name">
+        {% for st in students %}
+        <label class="nametile"><input type="radio" name="name" value="{{ st['name'] }}" {% if pre == st['name'] %}checked{% endif %} required>
+          <span class="ini" aria-hidden="true">{{ st['name'][:1]|upper }}</span><span>{{ st['name'] }}</span></label>
+        {% endfor %}
+      </div>
+      <div id="pinrow" {% if not pre %}hidden{% endif %}>
+        <label class="f" for="pin">PIN</label>
+        <input type="password" name="pin" id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" class="pinbox" required>
+        <p style="margin-top:1rem"><button class="btn">Sign in</button></p>
+      </div>
+    </form>
+    <p class="hint" style="margin-top:1rem">Forgot your PIN? Your tutor can reset it.</p>
+    {% else %}
+    <p class="muted">No one has signed up yet. Tap <b>I&rsquo;m new here</b> to be the first.</p>
+    {% endif %}
+  </section>
 </main>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var f = document.getElementById('sf'); if (!f) return;
+  var row = document.getElementById('pinrow'), pin = document.getElementById('pin');
+  Array.prototype.forEach.call(f.querySelectorAll('input[name=name]'), function (r) {
+    r.addEventListener('change', function () { row.hidden = false; pin.value = ''; pin.focus(); });
+  });
+  if (!row.hidden) pin.focus();
+})();
+</script>
 {% endblock %}

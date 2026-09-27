@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Add yourself{% endblock %}
+{% block bodyclass %}welcome{% endblock %}
+{% block chrome %}
+<main class="frame" style="max-width:620px">
+  <p class="noprint" style="margin-top:1rem"><a href="{{ url_for('login') }}">&larr; Back</a></p>
+  <section class="sheet">
+    <h1>Nice to meet you</h1>
+    <p class="muted">This stays on your tutor&rsquo;s computer. Nothing is sent anywhere.</p>
+    {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+    <form method="post" autocomplete="off">
+      <label class="f" for="nm">Your name</label>
+      <input type="text" name="name" id="nm" value="{{ f.get('name', '') }}" maxlength="40" required autofocus>
+      <div class="cols" style="gap:1rem">
+        <div>
+          <label class="f" for="pn">Pick a 4-digit PIN</label>
+          <input type="password" name="pin" id="pn" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="pinbox" required>
+        </div>
+        <div>
+          <label class="f" for="pn2">Type it again</label>
+          <input type="password" name="pin2" id="pn2" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="pinbox" required>
+        </div>
+      </div>
+      <p class="hint">You will use it to sign in on any device here.</p>
+      <div class="cols" style="gap:1rem">
+        <div>
+          <label class="f" for="gr">Grade</label>
+          <select name="grade" id="gr">
+            <option value="">Choose</option>
+            {% for g in ('8', '9', '10', '11', '12', 'Other') %}<option value="{{ g }}" {% if f.get('grade') == g %}selected{% endif %}>{{ g if g == 'Other' else 'Grade ' + g }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="f" for="td">When is your SAT? (if you know)</label>
+          <input type="date" name="test_date" id="td" value="{{ f.get('test_date', '') }}">
+        </div>
+      </div>
+      <label class="f" for="gg">Score you are aiming for</label>
+      <input type="number" name="goal" id="gg" value="{{ f.get('goal', 1200) }}" min="400" max="1600" step="10">
+      <p class="hint">A guess is fine. You and your tutor can change it any time.</p>
+      <p style="margin-top:1.4rem"><button class="btn big">Continue</button></p>
+    </form>
+  </section>
+</main>
+{% endblock %}

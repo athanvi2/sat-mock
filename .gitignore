@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+sat_mock.db
+.DS_Store
+node_modules/

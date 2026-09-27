@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{{ label }}{% endblock %}
+{% block bodyclass %}run{% endblock %}
+{% block chrome %}
+<div class="rbar">
+  <div class="title">{{ label }}</div>
+  <div class="timer" id="timer" aria-live="off">
+    <b id="clock">--:--</b>
+    <button id="hideclock" type="button">Hide</button>
+  </div>
+  <div class="tools">
+    <button class="tool" id="t-hl" type="button" aria-pressed="false" title="Select text, then it is highlighted. Click a highlight to remove it.">Highlight</button>
+    {% if m['section'] == 'math' %}
+    <button class="tool" id="t-calc" type="button" aria-pressed="false">Calculator</button>
+    <button class="tool" id="t-ref" type="button" aria-pressed="false">Reference</button>
+    {% endif %}
+  </div>
+</div>
+<div id="warn" class="warnbanner" hidden></div>
+<div class="pages" id="pages">
+  <section class="page" id="left" aria-label="Passage or question"></section>
+  <section class="page right" id="right" aria-label="Answer choices"></section>
+</div>
+<div class="rfoot">
+  <div class="l">{{ s['name'] }}</div>
+  <div class="m">
+    <button class="btn ghost" id="qnav" type="button" aria-haspopup="true" aria-expanded="false">Question <span id="qcur">1</span> of {{ m['n'] }}</button>
+    <div class="navpop" id="navpop" hidden></div>
+  </div>
+  <div class="rt">
+    <button class="btn ghost" id="back" type="button">Back</button>
+    <button class="btn" id="next" type="button">Next</button>
+  </div>
+</div>
+<div class="floater" id="calc" role="dialog" aria-label="Calculator">
+  <header><span>Calculator</span><button type="button" id="calc-x" aria-label="Close calculator">&times;</button></header>
+  <div class="body" id="calcbody"></div>
+</div>
+<div class="floater" id="refsheet" role="dialog" aria-label="Math reference sheet">
+  <header><span>Reference sheet</span><button type="button" id="ref-x" aria-label="Close reference sheet">&times;</button></header>
+  <div class="body">{{ reference|safe }}</div>
+</div>
+<div class="overlay" id="review" hidden>
+  <div class="box" role="dialog" aria-label="Check your work">
+    <h2>Check your work</h2>
+    <p id="revsum"></p>
+    <div class="legend small muted" style="display:flex;gap:1rem;flex-wrap:wrap;margin:.5rem 0 .8rem">
+      <span><span class="bubble done" style="width:1.3rem;height:1.3rem"></span> answered</span>
+      <span><span class="bubble todo" style="width:1.3rem;height:1.3rem"></span> not answered</span>
+      <span><span class="bubble flag" style="width:1.3rem;height:1.3rem"></span> flagged</span>
+    </div>
+    <div class="bubblegrid" id="revgrid"></div>
+    <p style="margin-top:1.2rem;display:flex;gap:.6rem;flex-wrap:wrap">
+      <button class="btn ghost" id="rev-back" type="button">Return to questions</button>
+      <button class="btn" id="rev-submit" type="button">Submit this module</button>
+    </p>
+    {% if sess['mode'] == 'exam' %}<p class="hint">After you submit you cannot come back to this module.</p>{% endif %}
+  </div>
+</div>
+<script>
+window.RUN = {
+  moduleId: {{ m['id'] }}, items: {{ payload|safe }}, remaining: {{ remaining if remaining is not none else 'null' }},
+  limit: {{ m['limit_sec'] or 0 }}, warn: {{ m['warn_sec'] or 0 }}, feedback: {{ 1 if sess['feedback'] else 0 }},
+  section: "{{ m['section'] }}", exam: {{ 1 if sess['mode'] == 'exam' else 0 }},
+  desmosKey: "{{ desmos_key }}", urls: {save: "{{ url_for('api_save') }}", check: "{{ url_for('api_check') }}", finish: "{{ url_for('api_finish') }}"}
+};
+</script>
+{% endblock %}
+{% block scripts %}
+{% if m['section'] == 'math' %}<script defer src="https://www.desmos.com/api/v1.11/calculator.js?apiKey={{ desmos_key }}" onerror="window.DESMOS_FAILED=true"></script>{% endif %}
+<script defer src="{{ url_for('static', filename='calc.js') }}"></script>
+<script defer src="{{ url_for('static', filename='runner.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Lecture: {{ skill['name'] }}{% endblock %}
+{% block content %}
+<p class="noprint"><a href="{{ url_for('skills_index') }}">All skills</a> &nbsp; <button class="btn ghost" onclick="window.print()">Print</button>
+  <a class="btn ghost" href="{{ url_for('lecture', skill=skill['key']) }}?seed={{ range(1, 9999)|random }}">Different examples</a>
+  <a class="btn" href="{{ url_for('practice') }}?skill={{ skill['key'] }}">Practice this skill</a></p>
+<div class="paper">
+  <h1>{{ skill['name'] }}</h1>
+  <p class="muted">{{ SECTION_NAME[skill['section']] }}. {{ skill['domain'] }}.</p>
+  <div class="cover">
+    <h2>What can you see?</h2><ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
+    <h2>How to do this</h2><ol class="steps">{% for t in skill['how'] %}<li>{{ t }}</li>{% endfor %}</ol>
+    <h2>Watch out for</h2><ul class="plain">{% for t in skill['traps'] %}<li>{{ t }}</li>{% endfor %}</ul>
+    {% if skill['formulas'] %}<h2>Formulas</h2><div class="prose">{{ skill['formulas']|safe }}</div>{% endif %}
+  </div>
+  <h2 class="pagebreak" style="margin-top:1.5rem">Worked examples</h2>
+  {% for q in ex %}
+  <div class="prob">
+    <p class="muted small"><b>Example {{ loop.index }}</b> ({{ ['easy', 'medium', 'hard'][q['d']] }})</p>
+    {% if q['passage'] %}<div class="passage">{{ q['passage']|safe }}</div>{% endif %}
+    <p class="prose"><b>{{ q['q']|safe }}</b></p>
+    {% if q['figure'] %}{{ q['figure']|fig|safe }}{% endif %}
+    {% if q['type'] == 'mc' %}<div class="prose">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>{% endif %}
+    <div class="feedback"><b>Answer: {{ q['answer'] }}.</b><br>{{ q['expl']|safe }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

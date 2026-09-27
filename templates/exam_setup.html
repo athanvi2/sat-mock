@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Mock exam{% endblock %}
+{% block content %}
+<h1>Mock exam</h1>
+<p class="muted">Two sections, two modules each. The second module in each section is easier or harder depending on how the first module went. No answers are shown until the end.</p>
+<form method="post" class="sheet">
+  <fieldset>
+    <legend>Version</legend>
+    <div class="choicebar" style="flex-direction:column;align-items:stretch">
+      <label><input type="radio" name="kind" value="mock" checked><b>Hour-long mock</b>: {{ mock['rw']['n'] * 2 }} Reading and Writing and {{ mock['math']['n'] * 2 }} Math questions, {{ mock['total_min'] }} minutes of testing</label>
+      <label><input type="radio" name="kind" value="full"><b>Full length</b>: {{ o['rw']['n'] * 2 }} Reading and Writing and {{ o['math']['n'] * 2 }} Math questions, 2 hours 14 minutes of testing</label>
+    </div>
+    <label class="f" for="minutes">Minutes available for the hour-long version</label>
+    <input type="number" name="minutes" id="minutes" value="55" min="30" max="120">
+    <p class="hint">The official test is 134 minutes. The shorter version multiplies question counts and time by the same factor (about {{ '%.2f'|format(mock['f']) }} for 55 minutes), so the pace per question is the same as the real test, and each topic keeps its official share.</p>
+  </fieldset>
+  <button class="btn big">Set up the exam</button>
+</form>
+<section class="sheet">
+  <h2>How the adaptive part works here</h2>
+  <p>Module 1 mixes easy, medium, and hard questions. If a student gets about 60% or more of the difficulty-weighted points in Module 1, Module 2 is the harder version. Otherwise it is the easier version. The real test uses a private model; this is a simple stand-in that behaves the same way.</p>
+  <p>There is no break screen timer. Press Start on each module when ready. Reading and Writing comes first, then Math.</p>
+</section>
+{% endblock %}

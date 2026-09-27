@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% macro trend(t) %}{% if t == 'improving' %}<span class="pill strong">Improving</span>{% elif t == 'slipping' %}<span class="pill miss">Slipping</span>{% elif t == 'steady' %}<span class="pill steady">Steady</span>{% else %}<span class="pill new">Not enough data</span>{% endif %}{% endmacro %}
+{% block content %}
+<div style="display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap" class="noprint">
+  <h1 style="margin:0">{{ d['student']['name'] }}</h1>
+  <span class="muted">Goal: {{ d['goal'] }}</span>
+  <span style="margin-left:auto">
+    <a href="{{ url_for('dashboard_view') }}?view=student" class="btn {{ '' if view == 'student' else 'ghost' }}">Student view</a>
+    <a href="{{ url_for('dashboard_view') }}?view=parent" class="btn {{ '' if view == 'parent' else 'ghost' }}">Parent summary</a>
+    <button class="btn ghost" onclick="window.print()">Print</button>
+  </span>
+</div>
+
+<section class="sheet" style="margin-top:1rem">
+  <h2>Where the score is likely to land</h2>
+  {% if d['n'] >= 10 %}{{ ruler|safe }}
+  <p class="small muted">Highlighter stroke: the range that is 80% likely to contain the score. Dark tick: best single guess. Blue triangle: goal. This is an estimate from a simple model built on the answers so far; the range narrows as more questions are answered.</p>
+  {% else %}<p class="muted">The score range appears after about 10 answered questions.</p>{% endif %}
+  <p class="prose" style="margin-top:1rem">{{ d['summary'] }}</p>
+</section>
+
+<section class="sheet">
+  <div class="cols3" style="text-align:left">
+    <div><div style="font:600 1.7rem var(--serif)">{% if d['n'] >= 10 %}{{ d['total']['lo'] }} to {{ d['total']['hi'] }}{% else %}n/a{% endif %}</div><div class="muted small">Likely total score ({{ d['conf'] }})</div></div>
+    <div><div style="font:600 1.7rem var(--serif)">{% if d['n'] >= 10 %}{% if d['gap'] > 0 %}{{ d['gap'] }} points{% else %}Goal reached{% endif %}{% else %}n/a{% endif %}</div><div class="muted small">Left to the goal of {{ d['goal'] }}</div></div>
+    <div><div style="font:600 1.7rem var(--serif)">{{ d['q_week'] }}</div><div class="muted small">Questions in the last 7 days. {{ d['sessions'] }} finished session{{ '' if d['sessions'] == 1 else 's' }}; practiced in {{ d['streak'] }} week{{ '' if d['streak'] == 1 else 's' }} in a row.</div></div>
+  </div>
+</section>
+
+{% if tline %}
+<section class="sheet">
+  <h2>Progress by session</h2>
+  {{ tline|safe }}
+  <p class="small muted">Each dot is the best guess after that session. The yellow band is the likely range, and it narrows as evidence builds up.</p>
+</section>
+{% endif %}
+
+<div class="cols">
+  <section class="sheet">
+    <h2>Strongest right now</h2>
+    {% if d['strongest'] %}<ul class="plain" style="padding-left:1.1rem">{% for s in d['strongest'] %}<li><b>{{ s['name'] }}</b>: {{ s['acc']|pct }} correct over {{ s['n'] }} questions</li>{% endfor %}</ul>
+    {% else %}<p class="muted">Needs at least four answered questions in a few skills.</p>{% endif %}
+  </section>
+  <section class="sheet">
+    <h2>Most room to grow</h2>
+    {% if d['weakest'] %}<ul class="plain" style="padding-left:1.1rem">{% for s in d['weakest'] %}<li><b>{{ s['name'] }}</b>: {{ s['acc']|pct }} correct over {{ s['n'] }} questions
+      {% if view == 'student' %} <a class="small" href="{{ url_for('homework', skill=s['skill']) }}">Homework sheet</a>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">Shows up once there are enough answers.</p>{% endif %}
+  </section>
+</div>
+
+{% if d['improving'] or d['slipping'] %}
+<section class="sheet">
+  <h2>What is changing</h2>
+  {% for s in d['improving'] %}<p><span class="pill strong">Improving</span> <b>{{ s['name'] }}</b>: {{ (s['acc_early'] or 0)|pct }} correct earlier, {{ (s['acc_late'] or 0)|pct }} correct lately.</p>{% endfor %}
+  {% for s in d['slipping'] %}<p><span class="pill miss">Slipping</span> <b>{{ s['name'] }}</b>: {{ (s['acc_early'] or 0)|pct }} correct earlier, {{ (s['acc_late'] or 0)|pct }} correct lately. Worth a quick refresher.</p>{% endfor %}
+</section>
+{% endif %}
+
+{% if view == 'student' %}
+<section class="sheet">
+  <h2>Every skill</h2>
+  <p class="small muted">Bars show each skill compared with the student's overall level in that section. Right of the center line is stronger than usual, left is weaker.</p>
+  {% for sec in ('rw', 'math') %}
+    <h3 style="margin-top:1.2rem">{{ SECTION_NAME[sec] }}</h3>
+    {% for s in d['skills'] if s['section'] == sec %}
+      {% set w = ([s['strength']|abs / 1.2, 1]|min) * 50 %}
+      <div class="sbar">
+        <div><b>{{ s['name'] }}</b><div class="small muted">{{ s['n'] }} answered, {{ s['acc']|pct }} correct{% if s['pace'] %}, {{ 'slow' if s['pace'] > 1.25 else ('fast' if s['pace'] < 0.7 else 'on pace') }}{% endif %}</div></div>
+        <div class="track" aria-hidden="true">{% if s['n'] < 4 %}<div class="fill mid"></div>{% elif s['strength'] >= 0 %}<div class="fill pos" style="width:{{ w }}%"></div>{% else %}<div class="fill neg" style="width:{{ w }}%"></div>{% endif %}</div>
+        <div>{{ trend(s['trend']) }}</div>
+      </div>
+    {% else %}<p class="muted small">No answers yet.</p>{% endfor %}
+  {% endfor %}
+  {% if d['untried'] %}<p class="small muted" style="margin-top:1rem">Not tried yet: {{ d['untried']|join(', ') }}.</p>{% endif %}
+</section>
+<section class="sheet">
+  <h2>Accuracy by content domain</h2>
+  <table class="list"><thead><tr><th>Domain</th><th>Section</th><th class="r">Answered</th><th class="r">Correct</th></tr></thead>
+  <tbody>{% for x in d['domains'] %}<tr><td>{{ x['domain'] }}</td><td>{{ SECTION_NAME[x['section']] }}</td><td class="r">{{ x['n'] }}</td><td class="r">{{ x['acc']|pct }}</td></tr>{% endfor %}</tbody></table>
+  {% if d['pace'] %}<p class="small muted" style="margin-top:.8rem">Pace compared with the real test:
+    {% for sec, v in d['pace'].items() %}{{ SECTION_NAME[sec] }} {{ (v * 100)|round|int }}% of the time allowed per question{% if not loop.last %}; {% endif %}{% endfor %}.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="sheet noprint">
+  <h2>Goal</h2>
+  <form method="post" action="{{ url_for('set_goal') }}"><label class="f" for="goal" style="margin-top:0">Target total score</label>
+  <input type="number" id="goal" name="goal" value="{{ d['goal'] }}" min="400" max="1600" step="10"> <button class="btn ghost">Save goal</button></form>
+</section>
+{% endblock %}

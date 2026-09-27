@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Review{% endblock %}
+{% block content %}
+<h1>Review: {{ sess['label'] }}</h1>
+<p class="noprint"><a href="{{ url_for('results', sid=sess['id']) }}">Back to results</a> &nbsp; {% if only == 'missed' %}<a href="{{ url_for('review', sid=sess['id']) }}">Show all</a>{% else %}<a href="{{ url_for('review', sid=sess['id']) }}?only=missed">Show missed only</a>{% endif %}</p>
+{% for it in items %}{% if only != 'missed' or not it.ok %}
+<section class="sheet">
+  <p class="muted small"><b>Question {{ it.r['idx'] + 1 }}</b> in {{ SECTION_NAME[it.r['section']] }}, Module {{ it.r['module_no'] }}. {{ it.skill['name'] }}, {{ ['easy', 'medium', 'hard'][it.r['d']] }}.
+    {% if it.ok %}<span class="pill strong">Correct</span>{% elif it.mine %}<span class="pill miss">Missed</span>{% else %}<span class="pill new">Not answered</span>{% endif %}
+    {% if it.r['time_ms'] %} Time {{ (it.r['time_ms'] / 1000)|round(0)|int }}s.{% endif %}</p>
+  {% if it.q['passage'] %}<div class="prose">{{ it.q['passage']|safe }}</div>{% endif %}
+  <p class="prose" style="font-weight:600">{{ it.q['q']|safe }}</p>
+  {% if it.q['figure'] %}{{ it.q['figure']|fig|safe }}{% endif %}
+  {% if it.q['type'] == 'mc' %}
+    <div class="prose">{% for c in it.q['choices'] %}{% set L = 'ABCD'[loop.index0] %}
+      <div style="margin:.25rem 0;{% if L == it.q['answer'] %}font-weight:700;color:var(--strong){% elif L == it.mine %}color:var(--miss){% endif %}">{{ L }}. {{ c|safe }}{% if L == it.mine %} (your answer){% endif %}{% if L == it.q['answer'] %} (correct){% endif %}</div>{% endfor %}</div>
+  {% else %}
+    <p>Your answer: <b>{{ it.mine or 'none' }}</b>. Correct answer: <b>{{ it.q['answer'] }}</b></p>
+  {% endif %}
+  <div class="feedback">{{ it.q['expl']|safe }}</div>
+</section>
+{% endif %}{% endfor %}
+{% endblock %}

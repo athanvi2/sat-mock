@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Results{% endblock %}
+{% block content %}
+<h1>{{ sess['label'] }}</h1>
+<p class="muted">{{ sess['created']|dt }}. {{ right }} of {{ total_q }} correct.</p>
+<div class="cols">
+  <section class="sheet">
+    <h2>Modules</h2>
+    <table class="list">
+      <thead><tr><th>Module</th><th class="r">Correct</th><th class="r">Unanswered</th><th class="r">Time used</th></tr></thead>
+      <tbody>{% for p in per_mod %}
+        <tr><td>{{ SECTION_NAME[p.m['section']] }}, {% if sess['mode'] == 'exam' or p.m['module_no'] == 2 %}Module {{ p.m['module_no'] }}{% if p.m['module_no'] == 2 %} ({{ 'harder' if p.m['variant'] == 'hard' else 'easier' }}){% endif %}{% else %}set{% endif %}</td>
+            <td class="r">{{ p.right }} / {{ p.n }}</td><td class="r">{{ p.n - p.answered }}</td>
+            <td class="r">{% if p.time %}{{ p.time|mmss }}{% if p.m['limit_sec'] %} of {{ p.m['limit_sec']|mmss }}{% endif %}{% else %}n/a{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    <p style="margin-top:1rem"><a class="btn" href="{{ url_for('review', sid=sess['id']) }}">Review every question</a>
+       <a class="btn ghost" href="{{ url_for('review', sid=sess['id']) }}?only=missed">Review missed only</a></p>
+  </section>
+  <section class="sheet">
+    <h2>This session on its own</h2>
+    <p class="muted small">A single session has few questions, so treat these ranges as loose.</p>
+    <p style="margin:.2rem 0">Reading and Writing: <b>{% if srw['n'] %}{{ srw['lo'] }} to {{ srw['hi'] }}{% else %}not taken{% endif %}</b></p>
+    <p style="margin:.2rem 0">Math: <b>{% if smt['n'] %}{{ smt['lo'] }} to {{ smt['hi'] }}{% else %}not taken{% endif %}</b></p>
+    {% if weak %}
+    <h3 style="margin-top:1.2rem">Homework focus</h3>
+    <p>The biggest gap this time was <b>{{ SKILLS[weak]['name'] }}</b>.</p>
+    <p><a class="btn" href="{{ url_for('homework', skill=weak) }}">Make the homework sheet</a></p>
+    {% endif %}
+  </section>
+</div>
+<section class="sheet">
+  <h2>By topic</h2>
+  <table class="list">
+    <thead><tr><th>Domain</th><th class="r">Correct</th><th class="r">Answered</th><th class="r">Accuracy</th></tr></thead>
+    <tbody>{% for (sec, dname), v in dom %}
+      <tr><td>{{ dname }} <span class="muted small">({{ SECTION_NAME[sec] }})</span></td><td class="r">{{ v.right }}</td><td class="r">{{ v.n - v.blank }}</td>
+          <td class="r">{% if v.n - v.blank %}{{ (v.right / (v.n - v.blank))|pct }}{% else %}n/a{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <h3 style="margin-top:1.2rem">By skill</h3>
+  <table class="list">
+    <thead><tr><th>Skill</th><th class="r">Correct</th><th></th></tr></thead>
+    <tbody>{% for k, v in sk.items() %}<tr><td>{{ SKILLS[k]['name'] }}</td><td class="r">{{ v.right }} / {{ v.n }}</td>
+      <td class="r"><a href="{{ url_for('lecture', skill=k) }}">Lecture sheet</a></td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+<section class="sheet">
+  <h2>Overall estimate so far</h2>
+  {{ ruler|safe }}
+  <p class="muted small">The highlighted stroke is the likely range, the dark tick is the best single guess, and the blue triangle marks the goal. Based on {{ nrows }} answers ({{ conf }}). This is an estimate from a simple model, not an official score.</p>
+  <p><a href="{{ url_for('dashboard_view') }}">Open the dashboard</a></p>
+</section>
+{% endblock %}

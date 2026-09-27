@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Skills and lectures{% endblock %}
+{% block content %}
+<h1>Skills and lectures</h1>
+<p class="muted">Every skill has a lecture sheet with worked examples at three levels. Use it for the first half of the session, then send the student to practice.</p>
+{% for sec in ('rw', 'math') %}
+<section class="sheet">
+  <h2>{{ SECTION_NAME[sec] }}</h2>
+  {% for dname, wt in domains[sec].items() %}
+    <h3 style="margin-top:1rem">{{ dname }} <span class="muted small">({{ (wt * 100)|round|int }}% of the section)</span></h3>
+    <table class="list"><tbody>
+    {% for k, v in skills.items() if v['section'] == sec and v['domain'] == dname %}
+      <tr><td>{{ v['name'] }}</td><td class="r"><a href="{{ url_for('lecture', skill=k) }}">Lecture sheet</a> &nbsp; <a href="{{ url_for('practice') }}?skill={{ k }}">Practice</a> &nbsp; <a href="{{ url_for('homework', skill=k) }}">Homework</a></td></tr>
+    {% endfor %}</tbody></table>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

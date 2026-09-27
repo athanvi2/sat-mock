@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Choose a student{% endblock %}
+{% block chrome %}
+<main class="frame" style="max-width:760px">
+  <h1>Mock SAT</h1>
+  <p class="muted">Practice and full-length mock tests that follow the format of the Digital SAT. Everything runs on this computer.</p>
+  {% if err %}<p role="alert" style="color:var(--miss);font-weight:600">{{ err }}</p>{% endif %}
+  <div class="cols">
+    <section class="sheet">
+      <h2>Sign in</h2>
+      <form method="post" action="{{ url_for('login') }}">
+        <label class="f" for="name">Student</label>
+        <select name="name" id="name" required>
+          {% for st in students %}<option>{{ st['name'] }}</option>{% endfor %}
+        </select>
+        <label class="f" for="pin">PIN (if one was set)</label>
+        <input type="password" name="pin" id="pin" inputmode="numeric" autocomplete="off">
+        <p style="margin-top:1rem"><button class="btn" {% if not students %}disabled{% endif %}>Sign in</button></p>
+        {% if not students %}<p class="hint">No students yet. Add one on the right.</p>{% endif %}
+      </form>
+    </section>
+    <section class="sheet">
+      <h2>Add a student</h2>
+      <form method="post" action="{{ url_for('new_student') }}">
+        <label class="f" for="nn">Name</label>
+        <input type="text" name="name" id="nn" required>
+        <label class="f" for="pp">Parent or guardian name (optional)</label>
+        <input type="text" name="parent" id="pp">
+        <label class="f" for="gg">Goal total score</label>
+        <input type="number" name="goal" id="gg" value="1200" min="400" max="1600" step="10">
+        <label class="f" for="pn">PIN (optional, 4 digits)</label>
+        <input type="password" name="pin" id="pn" inputmode="numeric" maxlength="8" autocomplete="off">
+        <p style="margin-top:1rem"><button class="btn ghost">Add student</button></p>
+      </form>
+    </section>
+  </div>
+</main>
+{% endblock %}

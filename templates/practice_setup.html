@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Practice{% endblock %}
+{% block content %}
+<h1>Practice</h1>
+<p class="muted">Untimed or timed, with the answer and explanation after every question. Questions are labelled by module the way the real test is.</p>
+<form method="post" class="sheet" id="pf">
+  <fieldset>
+    <legend>Section</legend>
+    <div class="choicebar">
+      <label><input type="radio" name="section" value="math" {% if pre.get('section', 'math') == 'math' %}checked{% endif %}>Math</label>
+      <label><input type="radio" name="section" value="rw" {% if pre.get('section') == 'rw' %}checked{% endif %}>Reading and Writing</label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>What to practice</legend>
+    <label class="f" for="what" style="margin-top:0">Module or topic</label>
+    <select name="what" id="what">
+      <optgroup label="By module (same layout as the real test)">
+        <option value="m1">Module 1: mixed difficulty</option>
+        <option value="easy">Module 2, easier version</option>
+        <option value="hard">Module 2, harder version</option>
+        <option value="full">Both modules (Module 2 adapts to Module 1)</option>
+      </optgroup>
+      {% for sec in ('math', 'rw') %}
+      <optgroup label="{{ SECTION_NAME[sec] }}: by content domain" data-sec="{{ sec }}">
+        {% for dname in domains[sec] %}<option value="domain:{{ dname }}" data-sec="{{ sec }}">{{ dname }}</option>{% endfor %}
+      </optgroup>
+      <optgroup label="{{ SECTION_NAME[sec] }}: by skill" data-sec="{{ sec }}">
+        {% for k, nm in by_sec[sec] %}<option value="skill:{{ k }}" data-sec="{{ sec }}" {% if pre.get('skill') == k %}selected{% endif %}>{{ nm }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <label class="f" for="difficulty">Difficulty (topic practice only)</label>
+    <select name="difficulty" id="difficulty">
+      <option value="mixed">Mixed</option><option value="0">Easy</option><option value="1">Medium</option><option value="2">Hard</option>
+    </select>
+  </fieldset>
+  <fieldset>
+    <legend>Length</legend>
+    <div class="choicebar">
+      <label><input type="radio" name="length" value="session" {% if pre.get('length', 'session') == 'session' %}checked{% endif %}>30-minute session ({{ p30['math']['n'] }} Math or {{ p30['rw']['n'] }} Reading and Writing questions)</label>
+      <label><input type="radio" name="length" value="module">Full module ({{ pfull['math']['n'] }} Math or {{ pfull['rw']['n'] }} Reading and Writing)</label>
+      <label><input type="radio" name="length" value="custom">Custom <input type="number" name="custom_n" min="3" max="27" value="10" style="min-width:4rem;width:4.5rem"> questions</label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Settings</legend>
+    <div class="choicebar">
+      <label><input type="radio" name="timed" value="1" checked>Timed at real test pace</label>
+      <label><input type="radio" name="timed" value="0">No time limit</label>
+    </div>
+    <div class="choicebar">
+      <label><input type="radio" name="feedback" value="1" checked>Check each answer right away</label>
+      <label><input type="radio" name="feedback" value="0">Answers at the end</label>
+    </div>
+  </fieldset>
+  <button class="btn big">Start practice</button>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var what = document.getElementById('what');
+  var secs = document.querySelectorAll('input[name=section]');
+  function sync() {
+    var sec = document.querySelector('input[name=section]:checked').value;
+    Array.prototype.forEach.call(what.querySelectorAll('[data-sec]'), function (o) {
+      var on = o.getAttribute('data-sec') === sec;
+      o.hidden = !on; o.disabled = !on;
+    });
+    if (what.selectedOptions[0] && what.selectedOptions[0].disabled) what.value = 'm1';
+  }
+  Array.prototype.forEach.call(secs, function (r) { r.addEventListener('change', sync); });
+  var pre = new URLSearchParams(location.search).get('skill');
+  if (pre) { var o = what.querySelector('option[value="skill:' + pre + '"]'); if (o) { document.querySelector('input[name=section][value=' + o.getAttribute('data-sec') + ']').checked = true; what.value = o.value; } }
+  sync();
+})();
+</script>
+{% endblock %}

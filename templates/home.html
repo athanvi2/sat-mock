@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1>Hi {{ s['name'].split(' ')[0] }}</h1>
+<div class="cols">
+  <section class="sheet">
+    <h2>{{ next_sun.strftime('%A, %B %d').replace(' 0', ' ') }}</h2>
+    {% if is_mock %}
+      <p><span class="pill strong">Mock SAT day</span> This is the fifth Sunday of the month, so the hour goes to a full timed mock.</p>
+      <p class="muted">The {{ plan['total_min'] }}-minute version keeps the real question pace, the two-module layout, and the topic mix. It uses {{ plan['rw']['n'] * 2 }} Reading and Writing and {{ plan['math']['n'] * 2 }} Math questions.</p>
+      <p><a class="btn big" href="{{ url_for('exam') }}">Set up the mock exam</a></p>
+    {% else %}
+      <p><span class="pill new">Regular session</span> Sunday number {{ nth }} of the month: 30 minutes of lecture, then 30 minutes of practice.</p>
+      <p class="muted">Pick a skill in the lecture sheets, teach it, then start practice. The practice set picks the homework topic from what goes wrong.</p>
+      <p><a class="btn big" href="{{ url_for('practice') }}?length=session">Start 30-minute practice</a>
+         <a class="btn ghost" href="{{ url_for('skills_index') }}">Open lecture sheets</a></p>
+    {% endif %}
+    <p class="hint" style="margin-top:1rem">Upcoming mock Sundays: {% for m in mocks %}{{ m.strftime('%b %d, %Y').replace(' 0', ' ') }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+  </section>
+  <section class="sheet">
+    <h2>Score estimate</h2>
+    {% if nrows < 10 %}
+      <p class="muted">There are not enough answers yet for an estimate. After a first practice session, this will show a range.</p>
+    {% else %}
+      <p style="font-size:1.6rem;font-family:var(--serif);margin:0">{{ tot['lo'] }} to {{ tot['hi'] }}</p>
+      <p class="muted">Most likely about {{ tot['mid'] }} out of 1600. Reading and Writing {{ rw['lo'] }} to {{ rw['hi'] }}; Math {{ mt['lo'] }} to {{ mt['hi'] }}. Based on {{ nrows }} answers ({{ conf }}).</p>
+    {% endif %}
+    <p><a href="{{ url_for('dashboard_view') }}">Open the full dashboard</a></p>
+  </section>
+</div>
+<section class="sheet">
+  <h2>Recent sessions</h2>
+  {% if not recent %}<p class="muted">Nothing yet. Your first session will show up here.</p>{% else %}
+  <table class="list">
+    <thead><tr><th>When</th><th>What</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for r in recent %}
+      <tr><td>{{ r['created']|dt }}</td><td>{{ r['label'] }}</td>
+          <td>{% if r['finished'] %}Finished{% else %}In progress{% endif %}</td>
+          <td class="r">{% if r['finished'] %}<a href="{{ url_for('results', sid=r['id']) }}">Results</a>{% else %}<a href="{{ url_for('run', sid=r['id']) }}">Resume</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>{% endif %}
+</section>
+{% endblock %}

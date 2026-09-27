@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Homework: {{ skill['name'] }}{% endblock %}
+{% block content %}
+<p class="noprint">
+  <button class="btn" onclick="window.print()">Print</button>
+  <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}?seed={{ seed }}&n={{ n }}&key={{ 0 if key else 1 }}">{{ 'Hide answer key' if key else 'Show answer key' }}</a>
+  <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}">New set</a>
+  <span class="muted small">{{ n }} problems, about {{ mins }} minutes of focused work. Difficulty leans {{ 'easier' if acc is none or acc < 0.55 else 'harder' }} based on recent results.</span>
+</p>
+<div class="paper">
+  <div class="cover">
+    <h1>Homework: {{ skill['name'] }}</h1>
+    <p>Name: <span class="blank" style="width:14rem"></span> &nbsp; Date: <span class="blank"></span></p>
+    <h2>How to do this:</h2>
+    <ol class="steps">{% for t in skill['how'] %}<li>{{ t }}</li>{% endfor %}</ol>
+    <h2>What can u see</h2>
+    <ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
+    <h2>Watch out for</h2>
+    <ul class="plain">{% for t in skill['traps'] %}<li>{{ t }}</li>{% endfor %}</ul>
+    {% if skill['formulas'] %}<h2>Formulas</h2><div class="prose">{{ skill['formulas']|safe }}</div>{% endif %}
+    <p class="small" style="margin-top:1rem">{% if skill['section'] == 'math' %}Show your work. A calculator is allowed on the real test, so use one here too.{% else %}Underline the words that helped you decide.{% endif %}</p>
+  </div>
+  <div class="pagebreak"></div>
+  {% for q in qs %}
+  <div class="prob">
+    <div class="n">{{ loop.index }}.</div>
+    <div class="pb">
+    {% if q['passage'] %}<div class="passage">{{ q['passage']|safe }}</div>{% endif %}
+    <p class="prose" style="margin:.2rem 0"><b>{{ q['q']|safe }}</b></p>
+    {% if q['figure'] %}{{ q['figure']|fig|safe }}{% endif %}
+    {% if q['type'] == 'mc' %}
+      <div class="ch">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>
+    {% else %}<p>Answer: <span class="blank"></span></p>{% endif %}
+    {% if skill['section'] == 'math' %}<div class="work"></div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if key %}
+  <div class="pagebreak"></div>
+  <h2>Answer key for the tutor</h2>
+  {% for q in qs %}<div class="prob"><p><b>{{ loop.index }}. {{ q['answer'] }}</b> ({{ ['easy', 'medium', 'hard'][q['d']] }})</p><div class="small">{{ q['expl']|safe }}</div></div>{% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

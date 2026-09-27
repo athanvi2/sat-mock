@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Ready?{% endblock %}
+{% block content %}
+<section class="sheet" style="max-width:640px;margin:2rem auto">
+  {% if new_section %}<p><span class="pill new">Section break</span> Take a short stretch before the next section. The clock does not start until you press Start.</p>{% endif %}
+  <h1>{{ SECTION_NAME[m['section']] }}: {% if m['variant'] == 'm1' %}Module {{ m['module_no'] }}{% else %}{{ VARIANT_LABEL[m['variant']] if sess['mode'] == 'practice' else 'Module 2' }}{% endif %}</h1>
+  <p>{{ m['n'] }} questions{% if m['limit_sec'] %}, {{ (m['limit_sec'] / 60)|round(1) }} minutes{% else %}, no time limit{% endif %}.</p>
+  <ul>
+    {% if m['limit_sec'] %}<li>The timer starts when you press Start. You can hide it. You will get a warning when {{ (m['warn_sec'] / 60)|round(0)|int }} minute{{ '' if (m['warn_sec'] / 60)|round(0)|int == 1 else 's' }} remain.</li>{% endif %}
+    <li>You can move back and forth inside the module, flag questions for review, and cross out choices.</li>
+    {% if m['section'] == 'math' %}<li>A graphing calculator and the reference sheet are available for the whole module.</li>{% endif %}
+    {% if sess['feedback'] %}<li>Use Check answer to see whether you were right and read the explanation.</li>{% else %}<li>Answers and explanations are shown when the session ends.</li>{% endif %}
+    {% if sess['mode'] == 'exam' %}<li>Once you submit a module you cannot return to it.</li>{% endif %}
+  </ul>
+  <form method="post"><button class="btn big">Start</button></form>
+</section>
+{% endblock %}

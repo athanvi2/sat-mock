@@ -40,6 +40,9 @@ h = hist(d)
 check(len(h) == 1 and ' at ' in h[0] and len(os.listdir(os.path.join(d, 'History', h[0]))) == 2, 'History has a time-stamped folder with sheet and key')
 with open(os.path.join(d, top(d)[0]), 'rb') as fh: check(fh.read(4) == b'%PDF', 'the sheet is a real PDF')
 first = top(d)[0]
+rows = db.q('SELECT sheet, uid FROM hw_items WHERE student_id=?', (sid,))
+check(len(rows) >= 10 and all(r['sheet'].startswith('2026-10-07|homework|') for r in rows), 'the sheet\'s %d questions are recorded' % len(rows))
+check(set(r['uid'] for r in rows) <= set(db.seen_uids(sid)), 'and count as seen for later practice, tests and sheets')
 
 # unchanged plan: nothing regenerated
 r = hwsync.sync_student(A.app, sid, today)
@@ -52,10 +55,26 @@ r = hwsync.sync_student(A.app, sid, today)
 check(first not in top(d) and len(top(d)) == 1 and 'due Wed Oct 14' in top(d)[0], 'plan change replaces the sheet (now due Oct 14): %s' % top(d))
 check(len(hist(d)) == 2 and any('Oct 7' in x for x in hist(d)), 'the replaced sheet stays in History')
 check('Removed' in r['message'], 'the status says what was removed')
+sheets = set(r['sheet'][:10] for r in db.q('SELECT sheet FROM hw_items WHERE student_id=?', (sid,)))
+check(sheets == {'2026-10-14'}, 'a sheet withdrawn before its due date frees its questions; the new one is recorded (%s)' % sorted(sheets))
 
 # time passes: after the due date, next week's homework takes over
 r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
 check(len(top(d)) == 1 and 'due Wed Oct 21' in top(d)[0], 'after the due date the next week\'s sheet appears: %s' % top(d))
+sheets = set(r['sheet'][:10] for r in db.q('SELECT sheet FROM hw_items WHERE student_id=?', (sid,)))
+check(sheets == {'2026-10-14', '2026-10-21'}, 'a sheet whose due date passed stays recorded as seen (%s)' % sorted(sheets))
+a = db.q("SELECT uid FROM hw_items WHERE student_id=? AND sheet LIKE '2026-10-14%'", (sid,))
+b = db.q("SELECT uid FROM hw_items WHERE student_id=? AND sheet LIKE '2026-10-21%'", (sid,))
+check(not (set(r['uid'] for r in a) & set(r['uid'] for r in b)), 'the next sheet repeats nothing from the last one')
+stu = db.q('SELECT * FROM students WHERE id=?', (sid,), one=True)
+for sk in ('central_ideas', 'inferences', 'transitions'):
+    one = A.build_homework(stu, sk, 11)['qs']; db.record_sheet(sid, 'test|' + sk, [q['uid'] for q in one])
+    two = A.build_homework(stu, sk, 12)['qs']
+    rep = set(q['uid'] for q in one) & set(q['uid'] for q in two)
+    check(not rep, 'two sheets on the same skill (%s) share no questions (%d shared)' % (sk, len(rep)))
+    again = A.build_homework(stu, sk, 11, sheet='test|' + sk)['qs']
+    check([q['uid'] for q in again] == [q['uid'] for q in one], 'rebuilding a recorded sheet gives the same sheet (%s)' % sk)
+    db.forget_sheet(sid, 'test|' + sk)
 
 # a missing or half-written current sheet (app stopped mid-write, or deleted by hand) is simply made again
 cur = top(d)[0]

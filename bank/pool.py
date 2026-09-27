@@ -47,23 +47,31 @@ def make(skill, d, seed, spr=False):
 
 
 def make_safe(skill, d, seed, spr, avoid, hard=None):
-    """Build a question whose uid is not in `avoid` (soft: seen recently) and never in `hard` (already in this set).
-    Thin skills can run out of fresh items; then a recently seen item is reused, and if even that would repeat
-    something in the current set, a neighbouring difficulty is tried before giving up."""
+    """Build a question whose uid is not in `avoid` (soft: given recently) and never in `hard` (already in this set).
+    `avoid` may be a set, or a dict {uid: when last given} (db.seen_uids). Order of preference:
+      1. a fresh question at the requested difficulty;
+      2. a fresh question at the nearest other difficulty (thin hand-written skills run dry at one level long before all
+         three; its level is scored as it is, while a repeat overstates what the student knows);
+      3. a recently given question at the requested difficulty, the one given LONGEST ago;
+      4. anything at another difficulty that does not repeat inside this set."""
     hard = hard or set()
-    fallback, last = None, None
-    for k in range(40):
-        try:
-            q = make(skill, d, seed + k * 7919, spr)
-        except Exception:
-            continue
-        last = q
-        if q['uid'] not in avoid and q['uid'] not in hard:
-            return q
-        if fallback is None and q['uid'] not in hard:
-            fallback = q
-    if fallback is not None:
-        return fallback
+    when = avoid.get if isinstance(avoid, dict) else (lambda u: 0)
+    seen, last = {}, None
+    for d2 in sorted([0, 1, 2], key=lambda x: (abs(x - d), x)):
+        for k in range(60 if d2 == d else 30):
+            try:
+                q = make(skill, d2, seed + k * (7919 if d2 == d else 104729), spr)
+            except Exception:
+                continue
+            last = last or q
+            if q['uid'] in hard:
+                continue
+            if q['uid'] not in avoid:
+                return q
+            if d2 == d:
+                seen.setdefault(q['uid'], q)
+    if seen:
+        return min(seen.values(), key=lambda q: when(q['uid']) or 0)
     for d2 in sorted(set([0, 1, 2]) - set([d]), key=lambda x: abs(x - d)):
         for k in range(20):
             try:
@@ -83,7 +91,7 @@ def build_module(section, n, variant='m1', rng=None, avoid=None, focus=None, dif
     one level. mix: optional {0: w, 1: w, 2: w} difficulty weights (overrides the variant mix, e.g. matched to level).
     avoid: uids to prefer not to reuse (recent history). hard: uids that must not repeat (this session)."""
     rng = rng or random.Random()
-    avoid = set(avoid or [])
+    avoid = avoid if isinstance(avoid, dict) else set(avoid or [])
     hard = set(hard or [])
     if focus and focus[0] == 'skill':
         slots = [focus[1]] * n

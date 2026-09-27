@@ -39,7 +39,7 @@ bank/
   skills.py       Skill taxonomy: DOMAINS (weights), SKILLS dict (name/see/how/traps/formulas per skill), REFERENCE_HTML
   math_gen.py     19 Math skills x 3 difficulties, parametric generators. GEN dict: skill_key -> fn(rng, difficulty, spr) -> question dict
   rw_gen.py       11 RW skills. Mix of parametric generators and pickers over hand-authored content (rw_content.py / rw_content2.py)
-  rw_content.py, rw_content2.py   Hand-written passages/items for skills that can't be parameterized (main idea, inference, rhetorical synthesis, etc.)
+  rw_content.py ... rw_content7.py   Hand-written passages/items for skills that can't be parameterized (main idea, inference, rhetorical synthesis, etc.)
   pool.py         Joins math_gen + rw_gen into one GEN dict. build_module() assembles a domain-weighted, difficulty-mixed module in official test order.
                   mock_plan() / full_plan() / session_plan() compute question counts and time limits.
 scoring.py        IRT-style (Rasch + guessing floor) score estimation. Documented in its own docstring as an ESTIMATE, not a real College Board model. The docstring lists each evidence rule and the failure it guards against.
@@ -64,7 +64,7 @@ static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN c
 
 **Question dict shape.** Every generator returns a dict with at least: `type` (`mc` or `spr`), `passage` (HTML, can be empty string), `q` (the stem), `choices` (list of 4, for mc), `answer` (a letter A-D for mc, or the numeric value/tolerance for spr), `expl` (HTML explanation), `uid` (a string used for de-duplication). `pool.make()` adds `skill`, `d`, `seed`, `section`, `domain`, `skill_name` on top. Don't strip these when refactoring, `app.py` and the templates read them by key.
 
-**uid and repeat-avoidance.** `db.seen_uids()` collects uids a student has answered in the last 45 days; `pool.make_safe()` retries with new seeds to avoid handing out the same uid again. If you add a new generator, give it a real uid (not the md5-of-text fallback in `pool.make()`) so repeat-avoidance actually works instead of treating every random variant as unique.
+**uid and repeat-avoidance.** `db.seen_uids()` returns `{uid: when}` for everything a student was given in the last 45 days: items in app sessions plus questions on Desktop homework sheets (`hw_items`, written by `hwsync` when a sheet is made; a sheet withdrawn before its due date gives its questions back). `pool.make_safe()` then prefers, in order: a fresh question at the requested difficulty, a fresh one at the nearest other difficulty, the question given longest ago. Nothing ever repeats inside one set. If you add a new generator, give it a real uid (not the md5-of-text fallback in `pool.make()`) so repeat-avoidance actually works instead of treating every random variant as unique.
 
 **Python 3.8 compatibility.** `tests/portable_check.py` parses every `.py` file against the 3.8 grammar. Don't use walrus-in-weird-places, `match` statements, or anything newer than 3.8 allows. This is intentional: the tutor's machine and any future packaging shouldn't require chasing a Python upgrade.
 
@@ -80,7 +80,7 @@ static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN c
 
 ## Question bank depth (check `tests/bank_report.py` before assuming otherwise)
 
-Passage-based RW skills (`text_structure_purpose`, `central_ideas`, `coe_textual`, `inferences`, `rhetorical_synthesis`, and hard `cross_text`) have 12 hand-written items per difficulty across `rw_content.py` to `rw_content4.py`. That is the thinnest part of the bank: roughly 4-6 practice sessions on one skill before repeats inside the 45-day window. Add more with `rec()` / `rs()` in a NEW file or at the END of `rw_content4.py`: authored uids are `skill:index`, so inserting in the middle renumbers every later item and breaks repeat-avoidance history. Same rule for `TPAIRS` (transitions) and other indexed lists in `rw_gen.py`.
+Passage-based RW skills (`text_structure_purpose`, `central_ideas`, `coe_textual`, `inferences`, `rhetorical_synthesis`) have 20 hand-written items per difficulty across `rw_content.py` to `rw_content7.py` (60 per skill); hard `cross_text` has 20. That is still the thinnest part of the bank, so single-skill RW practice is capped at `app.RW_SKILL_MAX` (15) questions: about 4 sets, or 4 homework sheets, on one skill before anything repeats inside the 45-day window. Add more with `rec()` / `rs()` in a NEW file (loaded last in `rw_gen.py`) or at the END of the newest one: authored uids are `skill:index`, so inserting in the middle renumbers every later item and breaks repeat-avoidance history. Same rule for `TPAIRS` (transitions), the `B_*` punctuation lists, `XT`, and other indexed lists in `rw_gen.py`.
 
 **Distractor rule.** `tests/rw_quality.py` fails if, in any skill, the correct choice is the longest or the shortest more than 40% of the time, or at either extreme less than 30%. Wrong answers must be as specific as the key (a misread detail, an overreach, true-but-off-goal), and rhetorical-synthesis distractors are full sentences built from the notes. Run it after adding RW items.
 

@@ -9,7 +9,8 @@
         .manifest.json                                                <- what is current, and for which calendar item
 
 "This week's" homework is the next homework item on the student's calendar (planner.plan), plus any refresher due on or
-before it. When the plan changes (a different skill, a different due date) or that due date passes, the old sheet is
+before it. Each sheet's questions are recorded (db.hw_items) so later practice, tests and sheets avoid them; a sheet
+withdrawn before its due date gives its questions back. When the plan changes (a different skill, a different due date) or that due date passes, the old sheet is
 removed from the top of the folder and a new one is made; every sheet ever made stays in History with a time stamp.
 Nothing is regenerated while the plan is unchanged, so the same calendar item never produces a second sheet.
 
@@ -92,11 +93,16 @@ def _title(it):
     return '%s - due %s - %s' % (what, _nice(it['day']), name)
 
 
-def _render(app, student, it, key):
+def _build(app, student, it):
+    """The questions for one calendar sheet. Built once, then rendered as the student copy and the answer key."""
+    with app.test_request_context('/homework'):
+        return app.extensions['build_homework'](student, it['skill'], _seed(student['id'], it), sheet=_key(it))
+
+
+def _render(app, student, it, hw, key):
     """HTML for one sheet (student copy, or tutor copy with the answer key), rendered outside a web request."""
     import flask
     with app.test_request_context('/homework'):
-        hw = app.extensions['build_homework'](student, it['skill'], _seed(student['id'], it))
         due = '%s, %s %d' % (it['day'].strftime('%A'), it['day'].strftime('%B'), it['day'].day)
         return flask.render_template('homework.html', s=None, st=student, skill=SKILLS[it['skill']], seed=0, mins=30, key=key, due=due, **hw)
 
@@ -154,14 +160,18 @@ def sync_student(app, student_id, today=None):
         if k not in want_keys:
             p = os.path.join(d, fname)
             if os.path.exists(p): os.remove(p)
+            if k[:10] >= today.isoformat():  # withdrawn before it was due: its questions were never worked, so free them
+                db.forget_sheet(student_id, k)
             removed.append(fname); del cur[k]
     stamp = datetime.datetime.now().strftime('%Y-%m-%d at %H.%M')
     for k, it in want_keys.items():
         fname = _title(it) + '.pdf'
         if k in cur and os.path.exists(os.path.join(d, cur[k])):
             continue  # unchanged plan: keep the sheet the student already has
-        sheet = pdfout.html_to_pdf(_render(app, student, it, False))
-        keypdf = pdfout.html_to_pdf(_render(app, student, it, True))
+        hw = _build(app, student, it)
+        sheet = pdfout.html_to_pdf(_render(app, student, it, hw, False))
+        keypdf = pdfout.html_to_pdf(_render(app, student, it, hw, True))
+        db.record_sheet(student_id, k, [q['uid'] for q in hw['qs']])  # these now count as seen for practice, tests, later sheets
         hist = os.path.join(d, 'History', '%s - %s' % (stamp, _title(it)))
         os.makedirs(hist, exist_ok=True)
         with open(os.path.join(hist, fname), 'wb') as fh: fh.write(sheet)

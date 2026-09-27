@@ -5,6 +5,9 @@ import bank.rw_content as _c1  # noqa: F401  (registers records)
 import bank.rw_content2 as _c2  # noqa: F401
 import bank.rw_content3 as _c3  # noqa: F401  (parts 3-4 load last: authored uids are index-based)
 import bank.rw_content4 as _c4  # noqa: F401
+import bank.rw_content5 as _c5  # noqa: F401  (parts 5-7: append only, same reason)
+import bank.rw_content6 as _c6  # noqa: F401
+import bank.rw_content7 as _c7  # noqa: F401
 from bank.rw_content import RECS
 
 Q_STD = 'Which choice completes the text so that it conforms to the conventions of Standard English?'
@@ -109,6 +112,25 @@ TPAIRS = [
     (2, 'addition', "The policy lowered costs for patients.", "it reduced the paperwork that doctors had to complete.", ['similarity', 'emphasis', 'result', 'meanwhile'], 'Moreover,'),
     (2, 'example', "Some insects have evolved remarkable defenses against predators.", "the bombardier beetle sprays a boiling chemical mixture from its abdomen.", ['addition', 'emphasis'], 'For example,'),
     (2, 'meanwhile', "While the orchestra rehearsed in the main hall, the soloist practiced alone in a small room upstairs.", "the stage crew adjusted the lights for the evening performance.", ['addition', 'sequence', 'similarity', 'contrast'], 'Meanwhile,'),
+    # added 2026-09 (second batch; append only)
+    (0, 'contrast', "The puzzle looked easy at first.", "it took the family three evenings to finish.", ['emphasis', 'instead']),
+    (0, 'result', "The power went out during the storm.", "the family ate dinner by candlelight.", ['sequence', 'meanwhile']),
+    (0, 'example', "Many animals sleep through the winter.", "bears spend months resting in their dens.", ['addition', 'emphasis']),
+    (0, 'addition', "Cycling to school is good exercise.", "it saves money on bus fare.", ['similarity', 'emphasis', 'result']),
+    (0, 'sequence', "First, the chef chopped the onions.", "she cooked them slowly in butter.", ['result', 'addition']),
+    (0, 'similarity', "Frogs begin life in water.", "salamanders hatch from eggs laid in ponds and streams.", ['addition', 'example']),
+    (1, 'contrast', "The company&rsquo;s profits rose sharply last year.", "its workers&rsquo; wages stayed the same.", ['emphasis', 'meanwhile', 'instead']),
+    (1, 'result', "The bridge was closed for repairs all summer.", "drivers had to take a detour that added twenty minutes to their trips.", ['sequence', 'meanwhile', 'addition']),
+    (1, 'example', "Some plants protect themselves with chemicals.", "milkweed contains a bitter sap that makes most animals sick.", ['addition', 'emphasis']),
+    (1, 'earlier', "The painter is now famous for her bold landscapes.", "she worked for a decade as an illustrator of children&rsquo;s books.", ['contrast', 'sequence']),
+    (1, 'instead', "The school did not buy new laptops for every student.", "it set up a lending program so students could borrow them.", ['contrast', 'emphasis', 'result']),
+    (1, 'addition', "The museum&rsquo;s new exhibit features ancient pottery.", "it includes tools that were used to make the pots.", ['similarity', 'emphasis', 'example', 'meanwhile']),
+    (2, 'contrast', "Most historians credit the treaty with ending the war.", "a growing number argue that the fighting had already stopped for other reasons.", ['instead', 'emphasis', 'addition', 'meanwhile'], 'Nevertheless,'),
+    (2, 'result', "The river&rsquo;s course shifted westward in the 1600s.", "the town that had grown up on its banks was left several kilometers from the water.", ['sequence', 'addition', 'emphasis', 'earlier'], 'As a result,'),
+    (2, 'emphasis', "The author disliked publicity.", "she refused every interview request for the last thirty years of her life.", ['addition', 'example', 'result'], 'In fact,'),
+    (2, 'similarity', "Early printing presses made books affordable to ordinary readers.", "cheap recording technology put music within reach of households that could never have hired musicians.", ['addition', 'example', 'meanwhile'], 'Likewise,'),
+    (2, 'instead', "The scientists did not attempt to eliminate the invasive fish entirely.", "they focused on protecting the few streams where native trout still spawned.", ['contrast', 'emphasis', 'result', 'sequence'], 'Instead,'),
+    (2, 'earlier', "The theory is now widely accepted.", "it was dismissed for decades by researchers who found its evidence too thin.", ['contrast', 'sequence', 'emphasis'], 'Previously,'),
 ]
 
 
@@ -136,6 +158,8 @@ B_NONE = [  # subject-verb: no punctuation between a subject and its verb
     ("Whoever first noticed that the river had begun to change its", "path", "alerted the village elders."),
     ("The gardener who planted the rows of tulips along the front", "walk", "retired last spring."),
     ("What the committee members most wanted to understand about the budget", "proposal", "was why costs had doubled."),
+    ("The small wooden boxes that the museum&rsquo;s staff found stacked in the old", "attic", "contained letters from the 1800s."),
+    ("Anyone who wants to join the school&rsquo;s robotics", "club", "should attend the meeting on Thursday."),
 ]
 B_INTRO = [
     ("After the storm finally", "passed", "the crew resumed repairs on the roof."),
@@ -144,6 +168,8 @@ B_INTRO = [
     ("Because the printer had run out of", "ink", "the students turned in handwritten reports."),
     ("Before the first frost arrived at the", "farm", "workers picked the last of the apples."),
     ("If the seedlings are kept in", "shade", "they will grow tall and thin."),
+    ("While the paint on the walls was still", "wet", "the workers covered the floor with plastic."),
+    ("To reach the summit before", "dark", "the climbers left camp at four in the morning."),
 ]
 B_FANBOYS = [
     ("The trail was closed for", "repairs", "so", "hikers used the northern route instead."),
@@ -151,12 +177,16 @@ B_FANBOYS = [
     ("The band rehearsed every", "evening", "and", "their performance was flawless."),
     ("The lake had frozen solid by", "December", "yet", "the ice fishermen stayed home."),
     ("The bakery sold out of bread by", "noon", "and", "the owner closed early."),
+    ("The museum closed its doors at", "six", "but", "the caf&eacute; stayed open late."),
+    ("The seedlings grew quickly in the", "greenhouse", "so", "the gardeners moved them outside in May."),
 ]
 B_SPLICE = [
     ("The museum opens at", "nine", "and", "the gift shop opens at ten."),
     ("Carlos wanted to join the debate", "team", "but", "he was afraid of speaking in public."),
     ("The harvest was smaller than expected", "", "so", "prices rose across the region."),
     ("Ines had rehearsed her speech all", "week", "yet", "her hands still shook at the podium."),
+    ("The wind picked up in the", "afternoon", "so", "the sailors lowered the largest sail."),
+    ("Amara practiced the piano for", "hours", "but", "the final passage still gave her trouble."),
 ]
 B_SEMI = [
     ("The experiment did not produce the expected", "result", "however", "the team learned something valuable about the equipment."),
@@ -165,36 +195,48 @@ B_SEMI = [
     ("Ella has never been to", "Japan", "still", "she speaks the language fluently."),
     ("Rainfall was well below average last", "year", "consequently", "reservoir levels dropped sharply."),
     ("The committee approved the", "plan", "moreover", "it promised additional funding for repairs."),
+    ("The trail was muddy after the", "rain", "nonetheless", "dozens of runners showed up for the race."),
+    ("The library extended its weekend", "hours", "as a result", "more students came to study on Sundays."),
 ]
 B_COLON = [
     ("The recipe calls for three", "ingredients", "flour, sugar, and eggs."),
     ("The expedition faced one major", "obstacle", "the unpredictable weather."),
     ("Sofia packed only the", "essentials", "a tent, a stove, and a map."),
     ("The museum offers two free", "programs", "a guided tour and a film screening."),
+    ("The garden produced a single", "crop", "tomatoes."),
+    ("The coach gave the team one simple", "rule", "never stop running until the whistle blows."),
 ]
 B_NOCOLON = [
     ("The committee is composed", "of", "engineers, teachers, and two students."),
     ("The trail passes", "through", "meadows, forests, and a narrow canyon."),
     ("Her favorite subjects", "are", "biology, chemistry, and art."),
     ("The kit for new members includes", "a", "membership card, a handbook, and a T-shirt."),
+    ("The best times to see the comet", "are", "just after sunset and just before dawn."),
+    ("The team&rsquo;s equipment", "included", "ropes, helmets, and two-way radios."),
 ]
 B_APPOS = [
     ("The novelist", "Jorge Tell", "whose debut appeared in 2005", "has won several international awards."),
     ("The physicist", "Amina Rahal", "who leads the observatory", "will speak at the conference."),
     ("Our school&rsquo;s founder", "Elena Park", "a former chemistry teacher", "donated her library to the town."),
     ("The city&rsquo;s oldest bridge", "the Iron Span", "which opened in 1889", "is closing for repairs."),
+    ("The chef", "Marco Diaz", "who trained in Lyon", "opened a restaurant downtown."),
+    ("Our town&rsquo;s newest park", "Riverside Commons", "which opened in May", "has a skate ramp and a pond."),
 ]
 B_DASH = [
     ("The lab&rsquo;s newest", "instrument", "a spectrometer that cost two million dollars", "arrived on Tuesday."),
     ("Her first", "album", "recorded in a single afternoon", "sold out within a week."),
     ("The village&rsquo;s only", "bakery", "which had been open for ninety years", "closed in April."),
     ("The orchestra&rsquo;s newest", "member", "a cellist from Seoul", "impressed the audience."),
+    ("The team&rsquo;s star", "player", "a forward who had scored in every game", "was injured in practice."),
+    ("The city&rsquo;s tallest", "building", "a glass tower finished in 2019", "sways slightly in strong winds."),
 ]
 B_SERIES = [
     ("The tour will visit", [("Austin", "Texas"), ("Denver", "Colorado"), ("Boise", "Idaho")], "over ten days."),
     ("The panel included", [("Dr. Lena Ortiz", "a chemist"), ("Marcus Bell", "an engineer"), ("Yuki Tanaka", "a designer")], "and reviewed every proposal."),
     ("The festival will be held in", [("Lyon", "France"), ("Porto", "Portugal"), ("Ghent", "Belgium")], "this summer."),
     ("Winners came from", [("Ravi Nair", "a sophomore"), ("Grace Lin", "a senior"), ("Tomas Reyes", "a freshman")], "this year."),
+    ("The conference brought together", [("Ana Silva", "a biologist"), ("Omar Aziz", "a geologist"), ("Mei Chen", "a chemist")], "for three days."),
+    ("The band played in", [("Nashville", "Tennessee"), ("Tulsa", "Oklahoma"), ("Omaha", "Nebraska")], "last spring."),
 ]
 
 
@@ -384,6 +426,18 @@ XT = [
          sup="An audit of 120 households found that the median payback period for rooftop solar was 8 years.",
          con="An audit of 120 households found that the median payback period for rooftop solar was 17 years.",
          qual="An audit of 120 households found that payback took about 8 years for homes with south-facing roofs but about 16 years for all other homes.", who='the author of Text 2'),
+    dict(t1="Some nutritionists argue that drinking a glass of water before each meal helps people eat less at that meal.",
+         sup="In a trial with 80 adults, those who drank water before meals ate about 15 percent fewer calories at those meals than those who did not.",
+         con="In a trial with 80 adults, those who drank water before meals ate just as many calories at those meals as those who did not.",
+         qual="In a trial with 80 adults, drinking water before meals reduced calories eaten among older participants but not among younger ones.", who='the author of Text 2'),
+    dict(t1="Many teachers believe that letting students choose their own books increases how much they read outside of school.",
+         sup="A study of 600 fifth graders found that students allowed to choose their own books read about twice as many pages at home as students assigned books.",
+         con="A study of 600 fifth graders found that students allowed to choose their own books read no more pages at home than students assigned books.",
+         qual="A study of 600 fifth graders found that choice increased reading at home for students who already enjoyed reading but not for reluctant readers.", who='the author of Text 2'),
+    dict(t1="Wildlife managers have proposed that building tunnels under highways will reduce the number of animals killed by cars.",
+         sup="After tunnels were built under a mountain highway, recorded deaths of deer and foxes on that stretch fell by 80 percent.",
+         con="After tunnels were built under a mountain highway, recorded deaths of deer and foxes on that stretch did not change.",
+         qual="After tunnels were built under a mountain highway, deaths of foxes on that stretch fell sharply, but deaths of deer, which rarely used the tunnels, did not.", who='the author of Text 2'),
 ]
 XT_OPTS = {
     'sup': ("It is supported by the findings described in Text 2.", "Text 2&rsquo;s results point the same direction as the claim."),

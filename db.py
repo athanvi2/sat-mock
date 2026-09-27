@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS events(
   id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, title TEXT, note TEXT, created REAL);
 CREATE TABLE IF NOT EXISTS plan_snapshots(
   student_id INTEGER NOT NULL, day TEXT NOT NULL, plan_json TEXT NOT NULL, PRIMARY KEY(student_id, day));
+CREATE TABLE IF NOT EXISTS hw_items(
+  student_id INTEGER NOT NULL, sheet TEXT NOT NULL, uid TEXT NOT NULL, created REAL, PRIMARY KEY(student_id, sheet, uid));
 CREATE INDEX IF NOT EXISTS ix_items_module ON items(module_id);
 CREATE INDEX IF NOT EXISTS ix_modules_session ON modules(session_id);
 CREATE INDEX IF NOT EXISTS ix_sessions_student ON sessions(student_id);
@@ -126,6 +128,7 @@ def delete_student(student_id):
     c.execute('DELETE FROM prior_scores WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM events WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM plan_snapshots WHERE student_id=?', (student_id,))
+    c.execute('DELETE FROM hw_items WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM students WHERE id=?', (student_id,))
     c.commit()
     c.close()
@@ -140,12 +143,34 @@ def add_items(module_id, questions):
     c.close()
 
 
-def seen_uids(student_id, days=45):
-    """uids this student has already answered recently, so new sessions prefer fresh items."""
+def seen_uids(student_id, days=45, except_sheet=None):
+    """Questions this student has been given recently, in the app or on a homework sheet, as {uid: when last given}, so
+    new sessions and sheets prefer fresh items and, when a skill runs out, reuse the one given longest ago.
+    except_sheet leaves out one homework sheet's own questions (so rebuilding that sheet gives the same sheet)."""
     since = time.time() - days * 86400
-    rows = q('''SELECT DISTINCT i.uid FROM items i JOIN modules m ON m.id=i.module_id JOIN sessions s ON s.id=m.session_id
-                WHERE s.student_id=? AND s.created>=?''', (student_id, since))
-    return set(r['uid'] for r in rows)
+    out = {}
+    for r in q('''SELECT i.uid, MAX(s.created) AS t FROM items i JOIN modules m ON m.id=i.module_id JOIN sessions s ON s.id=m.session_id
+                  WHERE s.student_id=? AND s.created>=? GROUP BY i.uid''', (student_id, since)):
+        out[r['uid']] = r['t']
+    for r in q('SELECT uid, MAX(created) AS t FROM hw_items WHERE student_id=? AND created>=? AND sheet IS NOT ? GROUP BY uid',
+               (student_id, since, except_sheet)):
+        out[r['uid']] = max(out.get(r['uid']) or 0, r['t'])
+    return out
+
+
+def record_sheet(student_id, sheet, uids):
+    """Remember the questions on a homework sheet handed to a student (see hwsync), so they count as seen."""
+    c = conn()
+    c.execute('DELETE FROM hw_items WHERE student_id=? AND sheet=?', (student_id, sheet))
+    now = time.time()
+    c.executemany('INSERT OR IGNORE INTO hw_items(student_id, sheet, uid, created) VALUES (?,?,?,?)', [(student_id, sheet, u, now) for u in uids])
+    c.commit()
+    c.close()
+
+
+def forget_sheet(student_id, sheet):
+    """A sheet withdrawn before its due date (the plan changed) was never worked, so its questions are fresh again."""
+    x('DELETE FROM hw_items WHERE student_id=? AND sheet=?', (student_id, sheet))
 
 
 def response_rows(student_id, upto_ts=None):

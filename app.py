@@ -503,6 +503,9 @@ def level_mix(student, section, skill=None):
     return S.target_mix(theta)
 
 
+RW_SKILL_MAX = 15  # questions in one single-skill Reading & Writing practice set (see CLAUDE.md, question bank depth)
+
+
 @app.route('/practice', methods=['GET', 'POST'])
 def practice():
     s = need_student()
@@ -548,6 +551,10 @@ def practice():
             plan['focus'] = ['skill', key]
             kind = 'Skill: %s' % SKILLS[key]['name']
             focus = 'skill'
+            if sec == 'rw' and sz['n'] > RW_SKILL_MAX:  # one hand-written RW skill would be used up in two sittings
+                sz = dict(n=RW_SKILL_MAX, limit=int(round(sz['limit'] * RW_SKILL_MAX / float(sz['n']))))
+                plan['sizes'][sec] = sz
+                plan['f'] = sz['limit'] / float(pool.OFFICIAL[sec]['minutes'] * 60)
         if focus:
             if diff in ('0', '1', '2'): plan['diff'] = int(diff)
             elif diff == 'auto':
@@ -558,7 +565,7 @@ def practice():
         create_module(sess, 0, sec, 2 if variant in ('easy', 'hard') else 1, variant)
         return redirect(url_for('run', sid=sid))
     by_sec = {sec: [(k, v['name']) for k, v in SKILLS.items() if v['section'] == sec] for sec in ('rw', 'math')}
-    return render_template('practice_setup.html', s=s, by_sec=by_sec, domains=DOMAINS, p30={sec: pool.session_plan(30, sec) for sec in ('rw', 'math')},
+    return render_template('practice_setup.html', s=s, by_sec=by_sec, domains=DOMAINS, p30={sec: pool.session_plan(30, sec) for sec in ('rw', 'math')}, rw_skill_max=RW_SKILL_MAX,
                            pfull={sec: pool.OFFICIAL[sec] for sec in ('rw', 'math')}, pre=request.args,
                            recs={sec: home_recs(s, sec) for sec in ('rw', 'math')})
 
@@ -904,15 +911,16 @@ def homework():
                            key=inst and request.args.get('key') == '1', **hw)
 
 
-def build_homework(student, skill, seed, n=None):
+def build_homework(student, skill, seed, n=None, sheet=None):
     """Questions for one homework sheet: 10-15 problems (about 30 minutes), difficulty matched to the student's level on
-    the skill, no repeats within the sheet, avoiding what the student saw recently. Same seed -> same sheet."""
+    the skill, no repeats within the sheet, avoiding what the student saw recently (in the app and on earlier sheets).
+    `sheet` names a calendar sheet (hwsync) whose own recorded questions should not count as seen."""
     n = max(5, min(25, int(n or hw_count(skill))))
     mix = level_mix(student, SKILLS[skill]['section'], skill) if student else {0: .3, 1: .45, 2: .25}
     c = pool.apportion(n, mix)
     ds = [0] * c[0] + [1] * c[1] + [2] * c[2]
     rng = random.Random(seed)
-    avoid = db.seen_uids(student['id']) if student else set()
+    avoid = db.seen_uids(student['id'], except_sheet=sheet) if student else set()
     hard, qs = set(), []
     for d in ds:
         qd = pool.make_safe(skill, d, rng.randrange(1, 10 ** 9), False, avoid, hard)

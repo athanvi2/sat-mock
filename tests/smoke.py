@@ -114,6 +114,17 @@ for form in [dict(section='math', what='m1', length='session', timed='1', assist
     assert len(uids) == len(set(uids)), 'a question repeated inside one session'
     print('practice ok', form['what'], form['assist'], sid)
 
+# one hand-written RW skill is capped per set (it would otherwise be used up in two sittings); two sets in a row share nothing
+two = []
+for _ in range(2):
+    sid = sid_from(ok(c.post('/practice', data=dict(section='rw', what='skill:central_ideas', length='session', difficulty='auto', timed='1', assist='end')), 'rw skill'))
+    m = db.q('SELECT n, limit_sec FROM modules WHERE session_id=?', (sid,), one=True)
+    assert m['n'] == A.RW_SKILL_MAX and 0 < m['limit_sec'] < 20 * 60, dict(m)
+    two.append(set(x['uid'] for x in db.q('SELECT i.uid FROM items i JOIN modules m ON m.id=i.module_id WHERE m.session_id=?', (sid,))))
+    drive(sid, 0.6, rng, 'end')
+assert not (two[0] & two[1]), 'back-to-back sets on one RW skill repeated %d questions' % len(two[0] & two[1])
+print('rw skill cap ok', A.RW_SKILL_MAX)
+
 # first tries are what count: every hinted item must still be scored wrong
 hinted = db.q('SELECT correct, retry_correct FROM responses WHERE hint_used=1')
 assert hinted and all(h['correct'] == 0 and h['retry_correct'] == 1 for h in hinted)

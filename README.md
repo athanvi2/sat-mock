@@ -56,7 +56,7 @@ The College Board does not publish its scoring. `scoring.py` uses a simple item-
 
 All questions are original (not College Board items). Math has parametric generators for all 19 skills at three difficulties. Reading and Writing mixes parametric generators (punctuation, grammar, transitions, data questions, cross-text) with hand-written passages. Difficulty labels are judgments, not measured.
 
-`python tests/bank_report.py` prints how many distinct questions each skill can produce. Some Reading and Writing skills built from hand-written passages have only 4 items per difficulty; add more in `bank/rw_content.py` or `bank/rw_content2.py` with `rec(skill, difficulty, passage, question, correct, wrong1, wrong2, wrong3)`. The app avoids repeating a question a student saw in the last 45 days when it can.
+`python tests/bank_report.py` prints how many distinct questions each skill can produce. Reading and Writing skills built from hand-written passages have 20 items per difficulty; add more in a new `bank/rw_content*.py` file (loaded last in `bank/rw_gen.py`) with `rec(skill, difficulty, passage, question, correct, wrong1, wrong2, wrong3)`, then run `python tests/rw_quality.py`. The app avoids repeating anything a student was given in the last 45 days, in the app or on a homework sheet, and when a skill runs out it reuses the question given longest ago.
 
 ## Desmos
 

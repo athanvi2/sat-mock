@@ -40,7 +40,9 @@ def make(skill, d, seed, spr=False):
     q.update(skill=skill, d=d, seed=seed, section=s['section'], domain=s['domain'], skill_name=s['name'])
     q.setdefault('passage', '')
     if 'uid' not in q:
-        q['uid'] = 'm:' + hashlib.md5((q['q'] + str(q.get('choices', q.get('answer')))).encode('utf-8')).hexdigest()[:12]
+        # order-independent: the same question with its choices shuffled is the same question
+        key = q['q'] + '|' + ('|'.join(sorted(q['choices'])) if q.get('choices') else str(q.get('answer')))
+        q['uid'] = 'm:' + hashlib.md5(key.encode('utf-8')).hexdigest()[:12]
     return q
 
 

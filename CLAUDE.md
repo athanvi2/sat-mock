@@ -22,6 +22,7 @@ python tests/fuzz_math.py        # every math generator, every difficulty, hundr
 python tests/fuzz_rw.py          # same for reading & writing
 python tests/smoke.py            # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock + CRUD, every skill's pages
 python tests/score_check.py      # simulated students: 80% ranges cover ~80%, no bias, edge cases (drilling, skipping, priors, recency)
+python tests/rw_quality.py       # RW answer choices give no length giveaway (see "Distractor rule")
 python tests/bank_report.py      # prints how many distinct questions each skill can produce at each difficulty
 ```
 
@@ -67,11 +68,13 @@ static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN c
 
 **Scoring is explicitly an estimate.** `scoring.py`'s docstring says so. Don't let score numbers creep into the UI or copy as if they were authoritative; "likely range" and "estimate" language is intentional throughout `analytics.py` and the templates.
 
-## Known thin spots (check `tests/bank_report.py` before assuming otherwise)
+## Question bank depth (check `tests/bank_report.py` before assuming otherwise)
 
-Five RW skills are hand-authored with only 4 items per difficulty (12 total each) and will start repeating on a heavy weekly cadence: `text_structure_purpose`, `central_ideas`, `coe_textual`, `inferences`, `rhetorical_synthesis`. `cross_text`'s hard tier is also thin (4 items). Add more via `rec()` calls in `rw_content.py` / `rw_content2.py` rather than trying to parameterize these, they're inherently passage-based.
+Passage-based RW skills (`text_structure_purpose`, `central_ideas`, `coe_textual`, `inferences`, `rhetorical_synthesis`, and hard `cross_text`) have 12 hand-written items per difficulty across `rw_content.py` to `rw_content4.py`. That is the thinnest part of the bank: roughly 4-6 practice sessions on one skill before repeats inside the 45-day window. Add more with `rec()` / `rs()` in a NEW file or at the END of `rw_content4.py`: authored uids are `skill:index`, so inserting in the middle renumbers every later item and breaks repeat-avoidance history. Same rule for `TPAIRS` (transitions) and other indexed lists in `rw_gen.py`.
 
-A few Math skills are thinner at specific difficulties: `percentages`, `right_tri_trig` (medium), `two_var_data` (easy), `circles` (easy).
+**Distractor rule.** `tests/rw_quality.py` fails if, in any skill, the correct choice is the longest or the shortest more than 40% of the time, or at either extreme less than 30%. Wrong answers must be as specific as the key (a misread detail, an overreach, true-but-off-goal), and rhetorical-synthesis distractors are full sentences built from the notes. Run it after adding RW items.
+
+Math generators are deep except a few spots in the 40-80 range (`right_tri_trig` easy/hard, `area_volume` hard, `percentages` hard, `circles` easy). Math uids fall back to a hash of the stem plus the sorted choices, so a reshuffled question counts as the same question.
 
 ## Frontend notes
 

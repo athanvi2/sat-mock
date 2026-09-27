@@ -388,31 +388,63 @@ def ratios_rates(r, d, spr):
 
 
 def percentages(r, d, spr):
+    t = r.random()
     if d == 0:
-        if r.random() < .5:
+        if t < .35:
             p, N = r.choice([5, 10, 15, 20, 25, 30, 35, 40, 60, 75]), r.choice([40, 80, 120, 160, 200, 240, 400])
             return dict(q=f"What is {p}% of {N}?", expl=f"{p}/100 \u00d7 {N} = {Fr(p * N, 100)}.",
                         **numeric(r, Fr(p * N, 100), spr, [Fr(N, p), N - p, Fr(p * N, 10)]))
-        w, p = r.choice([40, 60, 80, 120, 200]), r.choice([10, 20, 25, 30, 40])
-        return dict(q=f"A jacket originally priced at ${w} is on sale for {p}% off. What is the sale price, in dollars?",
-                    expl=f"Multiply by (1 - {p}/100): {w} \u00d7 {dec(Fr(100 - p, 100))} = {dec(w * Fr(100 - p, 100))}.",
-                    **numeric(r, w * Fr(100 - p, 100), spr, [w * Fr(p, 100), w - p, w + w * Fr(p, 100)]))
+        if t < .7:
+            w, p = r.choice([40, 60, 80, 120, 200]), r.choice([10, 20, 25, 30, 40])
+            return dict(q=f"A jacket originally priced at ${w} is on sale for {p}% off. What is the sale price, in dollars?",
+                        expl=f"Multiply by (1 - {p}/100): {w} \u00d7 {dec(Fr(100 - p, 100))} = {dec(w * Fr(100 - p, 100))}.",
+                        **numeric(r, w * Fr(100 - p, 100), spr, [w * Fr(p, 100), w - p, w + w * Fr(p, 100)]))
+        # "x is what percent of y"
+        y = r.choice([20, 25, 40, 50, 80, 200, 250, 400]); p = r.choice([5, 10, 15, 20, 30, 40, 60, 75, 80]); x = Fr(p * y, 100)
+        if x.denominator != 1: y, p, x = 80, 15, Fr(12)
+        item = r.choice([("students in a club", "play an instrument"), ("tickets sold", "were sold online"), ("trees in a park", "are oaks")])
+        return dict(q=f"Of the {y} {item[0]}, {x} {item[1]}. What percent of the {item[0]} {item[1]}?",
+                    expl=f"{x} \u00f7 {y} = {dec(Fr(x, y))} = {p}%.", **numeric(r, p, spr, [Fr(y, x) if x else 1, x, 100 - p, p * 2], post='\\%'))
     if d == 1:
-        w, m, dp = r.choice([40, 60, 80, 120, 200]), r.choice([20, 25, 40, 50]), r.choice([10, 20, 25])
-        v = w * Fr(100 + m, 100) * Fr(100 - dp, 100)
-        return dict(q=f"A store buys a lamp for ${w} and marks up the price by {m}%. During a sale, the store discounts the marked-up price by {dp}%. What is the sale price of the lamp, in dollars?",
-                    expl=f"{w} \u00d7 {dec(Fr(100 + m, 100))} \u00d7 {dec(Fr(100 - dp, 100))} = {dec(v)}.",
-                    **numeric(r, v, spr, [w * Fr(100 + m - dp, 100), w * Fr(100 + m, 100), w * Fr(100 - dp, 100)]))
-    if r.random() < .5:
+        if t < .4:
+            w, m, dp = r.choice([40, 60, 80, 120, 200]), r.choice([20, 25, 40, 50]), r.choice([10, 20, 25])
+            v = w * Fr(100 + m, 100) * Fr(100 - dp, 100)
+            return dict(q=f"A store buys a lamp for ${w} and marks up the price by {m}%. During a sale, the store discounts the marked-up price by {dp}%. What is the sale price of the lamp, in dollars?",
+                        expl=f"{w} \u00d7 {dec(Fr(100 + m, 100))} \u00d7 {dec(Fr(100 - dp, 100))} = {dec(v)}.",
+                        **numeric(r, v, spr, [w * Fr(100 + m - dp, 100), w * Fr(100 + m, 100), w * Fr(100 - dp, 100)]))
+        # percent change between two values
+        old_, p = r.choice([40, 50, 80, 120, 160, 200, 250, 400, 500]), r.choice([10, 15, 20, 25, 30, 40, 60, 75])
+        up = r.random() < .5; new_ = old_ * Fr(100 + (p if up else -p), 100)
+        if new_.denominator != 1: old_, new_ = 200, Fr(200 * (100 + (p if up else -p)), 100)
+        what = r.choice([("The number of members in a hiking club", "members"), ("The price of a bus pass", "dollars"), ("A school&rsquo;s enrollment", "students")])
+        wrong_base = abs(new_ - old_) / new_ * 100
+        return dict(q=f"{what[0]} changed from {dec(old_)} {what[1]} to {dec(new_)} {what[1]}. By what percent did it {'increase' if up else 'decrease'}?",
+                    expl=f"Percent change = (change \u00f7 original) \u00d7 100 = ({dec(abs(new_ - old_))} \u00f7 {dec(old_)}) \u00d7 100 = {p}%. Divide by the ORIGINAL value, not the new one.",
+                    **numeric(r, p, spr, [wrong_base, abs(new_ - old_), 100 - p, p + 10], post='\\%'))
+    if t < .35:
         p, o = r.choice([10, 15, 20, 25, 40]), r.choice([400, 800, 1000, 2000, 4000]); new = o * Fr(100 + p, 100)
         return dict(q=f"After a {p}% increase, the population of a town was {dec(new)}. What was the population before the increase?",
                     expl=f"New = old \u00d7 {dec(Fr(100 + p, 100))}, so old = {dec(new)} \u00f7 {dec(Fr(100 + p, 100))} = {o}.",
                     **numeric(r, o, spr, [new * Fr(100 - p, 100), new - p, new - new * Fr(p, 100)]))
-    a, b = r.choice([10, 20, 25, 50]), r.choice([20, 30, 40, 50])
-    tot = (Fr(100 + a, 100) * Fr(100 + b, 100) - 1) * 100
-    return dict(q=f"The price of a stock increased by {a}% in the first year and then increased by {b}% of its new value in the second year. By what percent did the price increase over the two years?",
-                expl=f"{dec(Fr(100 + a, 100))} \u00d7 {dec(Fr(100 + b, 100))} = {dec(tot / 100 + 1)}, an overall increase of {dec(tot)}%.",
-                **numeric(r, tot, spr, [a + b, (a + b) / Fr(2), a * b, tot + 10], post='%'))
+    if t < .65:
+        a, b = r.choice([10, 20, 25, 50]), r.choice([20, 30, 40, 50])
+        tot = (Fr(100 + a, 100) * Fr(100 + b, 100) - 1) * 100
+        return dict(q=f"The price of a stock increased by {a}% in the first year and then increased by {b}% of its new value in the second year. By what percent did the price increase over the two years?",
+                    expl=f"{dec(Fr(100 + a, 100))} \u00d7 {dec(Fr(100 + b, 100))} = {dec(tot / 100 + 1)}, an overall increase of {dec(tot)}%.",
+                    **numeric(r, tot, spr, [a + b, (a + b) / Fr(2), a * b, tot + 10], post='\\%'))
+    if t < .85:
+        # p% of a equals q% of what number
+        p, q_, a = r.choice([(20, 50, 150), (30, 60, 80), (15, 45, 120), (40, 25, 50), (60, 40, 30), (12, 48, 200), (35, 70, 90)])
+        x = Fr(p * a, q_)
+        return dict(q=f"If {p}% of a number {M('x')} is equal to {q_}% of {a}, what is the value of {M('x')}?",
+                    expl=f"{dec(Fr(p, 100))}x = {dec(Fr(q_, 100))} \u00d7 {a} = {dec(Fr(q_ * a, 100))}, so x = {dec(Fr(q_ * a, 100))} \u00f7 {dec(Fr(p, 100))} = {dec(Fr(q_ * a, p))}.",
+                    **numeric(r, Fr(q_ * a, p), spr, [x, Fr(p * q_ * a, 10000), Fr(q_ * a, 100), a * Fr(p, q_) * 2]))
+    # successive decrease then increase is not a return to the original
+    p = r.choice([10, 20, 25, 30, 40, 50]); base = r.choice([100, 200, 400, 500, 800])
+    final = base * Fr(100 - p, 100) * Fr(100 + p, 100)
+    return dict(q=f"A bicycle&rsquo;s price of ${base} was reduced by {p}%. Later the reduced price was increased by {p}%. What is the final price, in dollars?",
+                expl=f"{base} \u00d7 {dec(Fr(100 - p, 100))} \u00d7 {dec(Fr(100 + p, 100))} = {dec(final)}. The {p}% increase is taken of a SMALLER number, so the price does not return to ${base}.",
+                **numeric(r, final, spr, [base, base * Fr(100 - p, 100), base * Fr(100 + p, 100)]))
 
 
 def one_var_data(r, d, spr):
@@ -450,16 +482,33 @@ def one_var_data(r, d, spr):
                 expl=why, **mc(r, S[right], [s for i, s in enumerate(S) if i != right]))
 
 
-def scatter_fig(r, m, b, xmax=10):
+def scatter_fig(r, m, b, xmax=10, jitter=(-1.5, -1, -.5, 0, .5, 1, 1.5)):
     pts = []
     for x in range(1, xmax):
-        y = m * x + b + r.choice([-1.5, -1, -.5, 0, .5, 1, 1.5]); pts.append([x, round(y, 1)])
+        y = m * x + b + r.choice(jitter); pts.append([x, round(y, 1)])
     ymax = int(math.ceil((m * xmax + b + 3) / 2.0) * 2)
     return dict(type='scatter', xmin=0, xmax=xmax, ymin=0, ymax=ymax, xstep=1, ystep=max(2, ymax // 8 // 2 * 2),
                 points=pts, line=[[0, b], [xmax, m * xmax + b]], xlabel='x', ylabel='y')
 
 
 def two_var_data(r, d, spr):
+    if d == 0 and r.random() < .5:
+        m, b = r.choice([1, 1.5, 2, 2.5, 3]), r.choice([1, 2, 3, 4, 5])
+        fig = scatter_fig(r, m, b, jitter=(-2, -1.5, -1, 1, 1.5, 2))  # every point clearly off the line
+        above = sum(1 for x, y in fig['points'] if y > m * x + b + 1e-9)
+        below = sum(1 for x, y in fig['points'] if y < m * x + b - 1e-9)
+        on = len(fig['points']) - above - below
+        if r.random() < .5:
+            return dict(q="The scatterplot shows 9 data points and a line of best fit. How many of the data points lie above the line of best fit?",
+                        expl=f"Check each dot against the point on the line directly below or above it: {above} are above the line and {below} are below it.",
+                        figure=fig, **numeric(r, above, spr, [below, on, above + 1, 9 - above]))
+        if r.random() < .5:
+            return dict(q="The scatterplot shows data points and a line of best fit. Which of the following is closest to the slope of the line of best fit?",
+                        expl=f"Pick two points ON the line, such as (0, {dec(Fr(str(b)))}) and (10, {dec(Fr(str(m)) * 10 + b)}). Slope = rise/run = {dec(Fr(str(m)) * 10)}/10 = {dec(Fr(str(m)))}.",
+                        figure=fig, **numeric(r, Fr(str(m)), False, [b, Fr(1) / Fr(str(m)), Fr(str(m)) * 10 + b, Fr(str(m)) + 2]))
+        return dict(q="The scatterplot shows data points and a line of best fit. Which statement best describes the association between x and y?",
+                    expl="As x increases, y tends to increase, and the points cluster around a straight line: a positive linear association.",
+                    figure=fig, **mc(r, "A positive linear association", ["A negative linear association", "A positive exponential association", "No association"]))
     if d == 0:
         m, b, x0 = r.choice([1, 1.5, 2, 2.5, 3]), r.choice([1, 2, 3, 4, 5]), r.choice([2, 4, 5, 6, 8])
         ans = Fr(str(m)) * x0 + b
@@ -539,6 +588,15 @@ def inference_margin(r, d, spr):
         return dict(q=f"A random sample of the students at a university was surveyed, and the sample mean number of hours worked per week was {dec(mean)}, with an associated margin of error of {dec(me)}. Which of the following is a plausible value for the mean number of hours worked per week for all students at the university?",
                     expl=f"The plausible range is {dec(mean)} \u00b1 {dec(me)}, that is, {dec(mean - me)} to {dec(mean + me)}. Only {dec(inside)} is inside it.",
                     **mc(r, f(inside), [f(v) for v in out]))
+    if r.random() < .5:
+        N, p, me = r.choice([2000, 4000, 5000, 8000, 10000]), r.choice([30, 40, 45, 55, 60, 64]), r.choice([3, 4, 5])
+        lo, hi = N * (p - me) // 100, N * (p + me) // 100
+        inside = N * p // 100 + r.choice([-1, 1]) * (hi - lo) // 4
+        outs = [N * (p - 2 * me - 2) // 100, N * (p + 2 * me + 2) // 100, N * p // 1000]
+        f = lambda v: M('{:,}'.format(v).replace(',', '{,}'))
+        return dict(q=f"In a random sample of residents of a town with {'{:,}'.format(N)} residents, {p}% said they use the town&rsquo;s public library, with a margin of error of {me} percentage points. Which of the following is a plausible number of all residents of the town who use the library?",
+                    expl=f"The plausible share is {p - me}% to {p + me}%, which is {'{:,}'.format(lo)} to {'{:,}'.format(hi)} residents. Only {'{:,}'.format(inside)} falls in that range.",
+                    **mc(r, f(inside), [f(v) for v in outs]))
     me, k = r.choice([6, 8, 10, 12]), r.choice([4, 9, 16])
     ans = Fr(me, int(math.isqrt(k)))
     return dict(q=f"A poll of {r.choice([100, 150, 200])} randomly selected voters had a margin of error of {me} percentage points. If a second poll uses the same method with a random sample {k} times as large, what is the approximate margin of error for the second poll, in percentage points?",
@@ -546,19 +604,58 @@ def inference_margin(r, d, spr):
                 **numeric(r, ans, spr, [Fr(me, k), me * 2, me - k, Fr(me * 2, 3)]))
 
 
+EC_SUBJECTS = [("high school students", "a new study app", "quiz scores"), ("adults in a city", "a daily walking program", "resting heart rate"),
+               ("patients with mild headaches", "a magnesium supplement", "headache days per month"), ("middle school students", "a daily reading log", "reading fluency"),
+               ("office workers", "a standing desk", "reported back pain"), ("tomato plants in a greenhouse", "a new fertilizer", "fruit yield"),
+               ("adults with trouble sleeping", "an evening stretching routine", "hours of sleep"), ("college students", "background music while studying", "test scores"),
+               ("small businesses in a state", "a free online training course", "monthly sales")]
+EC_BIAS = [  # (population, the same population referred back to, where the sample was taken, what was asked, why it is biased)
+    ("all residents of a town", "the town&rsquo;s residents", "people leaving the town&rsquo;s gym", "how many days a week they exercise", "people at a gym are likely to exercise more than typical residents"),
+    ("all students at a high school", "the school&rsquo;s students", "members of the school&rsquo;s chess club", "whether the school should add more strategy games to the library", "chess club members are likely to favor strategy games"),
+    ("all voters in a city", "the city&rsquo;s voters", "people who called in to a radio show about a new stadium", "whether they support the stadium", "people who call in to a show are those with strong opinions, not a random group"),
+    ("all shoppers at a grocery store", "the store&rsquo;s shoppers", "shoppers in the organic foods aisle", "how much they would pay for organic produce", "shoppers already in the organic aisle likely value organic food more than typical shoppers"),
+    ("all commuters in a region", "the region&rsquo;s commuters", "people waiting at one train station at 8 a.m.", "whether they prefer trains to buses", "people at a train station are more likely to prefer trains"),
+]
+
+
 def evaluating_claims(r, d, spr):
-    subj = r.choice([("high school students", "a new study app", "quiz scores"), ("adults in a city", "a daily walking program", "resting heart rate"),
-                     ("patients with mild headaches", "a magnesium supplement", "headache days per month")])
-    pop, treat, out = subj
+    t = r.random()
+    if d >= 1 and t < .3:
+        pop, ref, where, asked, why = r.choice(EC_BIAS)
+        n = r.choice([50, 80, 100, 120, 150, 200])
+        return dict(q=f"A researcher wanted to estimate a characteristic of {pop}. The researcher surveyed {n} {where} and asked {asked}. Which of the following best explains why the results may not represent {ref}?",
+                    expl=f"The sample is not random: {why}. A larger sample from the same place would repeat the same bias; only random selection from the whole population fixes it.",
+                    **mc(r, f"The sample was not selected at random from {ref}.",
+                         [f"A sample of {n} people is too small to support any conclusion about {ref}.",
+                          "The researcher should have asked several more questions in the survey.",
+                          f"The researcher should have surveyed even more {where}."]))
+    if d == 2 and t < .5:
+        m1, me = r.randint(30, 70), r.choice([2, 3, 4, 5])
+        gap = r.choice([1, 2, 3]) if r.random() < .5 else me * 2 + r.choice([2, 3, 4])
+        m2 = m1 + gap
+        overlap = gap < 2 * me
+        thing = r.choice([("average commute time, in minutes, of residents", "Town A", "Town B"), ("average number of hours slept per night by students", "School A", "School B")])
+        ok = (f"The data do not provide convincing evidence of a difference, because the two intervals overlap." if overlap else
+              f"The data provide convincing evidence that the {thing[0]} is greater in {thing[2]} than in {thing[1]}, because the intervals do not overlap.")
+        wr = ([f"The {thing[0]} is definitely greater in {thing[2]} than in {thing[1]}, because {m2} is greater than {m1}.",
+               f"The {thing[0]} is exactly {gap} greater in {thing[2]} than in {thing[1]}.",
+               "The margins of error show that both estimates are wrong."] if overlap else
+              ["The data do not provide convincing evidence of a difference, because the two intervals overlap.",
+               f"The {thing[0]} is exactly {gap} greater in {thing[2]} than in {thing[1]}.",
+               "The margins of error show that both estimates are wrong."])
+        return dict(q=f"Random samples were used to estimate the {thing[0]} in two places. For {thing[1]} the estimate was {m1} with a margin of error of {me}; for {thing[2]} the estimate was {m2} with a margin of error of {me}. Which conclusion is best supported?",
+                    expl=f"{thing[1]}: {m1 - me} to {m1 + me}. {thing[2]}: {m2 - me} to {m2 + me}. " + ("The intervals overlap, so the true values could be equal." if overlap else "The intervals do not overlap, so the difference is unlikely to be due to sampling alone."),
+                    **mc(r, ok, wr))
+    pop, treat, out = r.choice(EC_SUBJECTS)
     rs, ra = r.random() < .5, r.random() < .5
     S = {(True, True): "The results can be generalized to the whole population, and the treatment caused the difference.",
          (False, True): "The treatment caused the difference among the participants, but the results cannot be generalized to the whole population.",
          (True, False): "The results can be generalized to the whole population, but the study shows only an association, not a cause.",
          (False, False): "The results apply only to the participants, and the study shows only an association, not a cause."}
-    samp = f"randomly selected from all {pop} in the region" if rs else f"volunteers who responded to a flyer at one clinic or school"
+    samp = f"randomly selected from all {pop} in the region" if rs else r.choice(["volunteers who responded to a flyer", "chosen from those who signed up at one location", "recruited through a social media post"])
     assign = f"The participants were randomly assigned to use {treat} or not." if ra else f"Each participant chose whether to use {treat}."
     if d == 2:
-        extra = f" The two groups were similar in size and the {out} were measured the same way for both."
+        extra = f" The two groups were similar in size and {out} was measured the same way for both."
         samp += ", and the sample was large"
     else:
         extra = ''
@@ -588,6 +685,22 @@ def area_volume(r, d, spr):
         return dict(q=f"A tank in the shape of a rectangular prism has a base that is {L} centimeters by {W} centimeters. The tank contains {lit} liters of water. (1 liter = 1,000 cubic centimeters.) What is the depth of the water, in centimeters?",
                     expl=f"{lit} L = {lit * 1000} cm\u00b3. Depth = {lit * 1000} \u00f7 ({L} \u00d7 {W}) = {dec(dep)}.",
                     **numeric(r, dep, spr, [Fr(lit, L * W), dep * 10, dep / 10, lit]))
+    t = r.random()
+    if t < .3:
+        k = r.choice([2, 3, 4, 5])
+        return dict(q=f"Two cubes are similar. The edge length of the larger cube is {k} times the edge length of the smaller cube. The surface area of the larger cube is how many times the surface area of the smaller cube?",
+                    expl=f"Area scales with the square of the scale factor: {k}\u00b2 = {k * k}. (Volume would scale by {k}\u00b3.)",
+                    **numeric(r, k * k, spr, [k, k ** 3, 2 * k, 6 * k]))
+    if t < .55:
+        rr, h = r.randint(2, 9), r.choice([3, 6, 9, 12])
+        return dict(q=f"A right circular cone and a right circular cylinder each have a radius of {rr} inches and a height of {h} inches. The volume of the cylinder minus the volume of the cone is {KPI} cubic inches. What is the value of {M('k')}?",
+                    expl=f"Cylinder: \u03c0({rr})\u00b2({h}) = {rr * rr * h}\u03c0. Cone: one third of that, {Fr(rr * rr * h, 3)}\u03c0. Difference: {Fr(2 * rr * rr * h, 3)}\u03c0.",
+                    **numeric(r, Fr(2 * rr * rr * h, 3), spr, [Fr(rr * rr * h, 3), rr * rr * h, Fr(4 * rr * rr * h, 3), 2 * rr * h]))
+    if t < .75:
+        e = r.randint(2, 9)
+        return dict(q=f"The surface area of a cube is {6 * e * e} square centimeters. What is the volume of the cube, in cubic centimeters?",
+                    expl=f"Each of the 6 faces has area {e * e}, so an edge is {e} and the volume is {e}\u00b3 = {e ** 3}.",
+                    **numeric(r, e ** 3, spr, [e * e, 6 * e * e, e ** 2 * 6 // 3, e ** 3 * 6]))
     k = r.choice([2, 3, 4])
     return dict(q=f"A solid sphere has volume {M('V')}. A second sphere has a radius that is {k} times the radius of the first sphere. The volume of the second sphere is how many times the volume of the first?",
                 expl=f"Volume scales with the cube of the scale factor: {k}\u00b3 = {k ** 3}.", **numeric(r, k ** 3, spr, [k * k, k, 3 * k, k ** 4]))
@@ -629,6 +742,15 @@ TRIPLES = [(3, 4, 5), (5, 12, 13), (8, 15, 17), (7, 24, 25), (20, 21, 29), (9, 4
 
 def right_tri_trig(r, d, spr):
     a, b, c = r.choice(TRIPLES)
+    if d == 0 and r.random() < .4:
+        if r.random() < .5:
+            L = r.randint(2, 12); f = lambda x: M(x)
+            return dict(q=f"Each leg of an isosceles right triangle has length {L}. What is the length of the hypotenuse?",
+                        expl=f"A 45-45-90 triangle has sides x, x, x\u221a2, so the hypotenuse is {L}\u221a2.",
+                        **mc(r, f(f"{L}\\sqrt{{2}}"), [f(f"{2 * L}"), f(f"{L}\\sqrt{{3}}"), f(f"{L}")]))
+        sin_ = M('\\sin A')
+        return dict(q=f"In right triangle ABC, angle C is the right angle. The side opposite angle A has length {a}, the side adjacent to angle A has length {b}, and the hypotenuse has length {c}. What is the value of {sin_}?",
+                    expl=f"sin A = opposite/hypotenuse = {a}/{c}.", **frac_res(r, a, c, [(b, c), (a, b), (c, a), (b, a)], spr))
     if d == 0:
         k = r.randint(1, 4) if c < 20 else 1; A, B, C = a * k, b * k, c * k
         if r.random() < .5:
@@ -636,6 +758,30 @@ def right_tri_trig(r, d, spr):
                         **numeric(r, C, spr, [A + B, C * C, B - A, abs(A * A - B * B)]))
         return dict(q=f"A right triangle has a hypotenuse of length {C} and one leg of length {A}. What is the length of the other leg?", expl=f"{C}\u00b2 - {A}\u00b2 = {C * C - A * A} = {B}\u00b2.",
                     **numeric(r, B, spr, [C - A, C * C - A * A, A + C, B + 2]))
+    if d == 1 and r.random() < .6:
+        t = r.random()
+        if t < .35:  # 30-60-90
+            sh = r.randint(2, 12); ask = r.choice(['hyp', 'long'])
+            if ask == 'hyp':
+                return dict(q=f"In a right triangle, one angle measures 30\u00b0 and the side opposite that angle has length {sh}. What is the length of the hypotenuse?",
+                            expl=f"In a 30-60-90 triangle the hypotenuse is twice the side opposite 30\u00b0: 2 \u00d7 {sh} = {2 * sh}.",
+                            **numeric(r, 2 * sh, spr, [sh, 3 * sh, Fr(sh, 2), sh + 30]))
+            f = lambda x: M(x)
+            return dict(q=f"In a right triangle, one angle measures 30\u00b0 and the side opposite that angle has length {sh}. What is the length of the side opposite the 60\u00b0 angle?",
+                        expl=f"In a 30-60-90 triangle the sides are x, x\u221a3, 2x. With x = {sh}, the side opposite 60\u00b0 is {sh}\u221a3.",
+                        **mc(r, f(f"{sh}\\sqrt{{3}}"), [f(f"{2 * sh}"), f(f"{sh}\\sqrt{{2}}"), f(f"{sh * 3}")]))
+        if t < .65:  # complementary sin/cos with an unknown angle
+            k = r.randint(12, 78); c0 = r.randint(2, 20)
+            ang_ = M(f'\\sin({k}^\\circ) = \\cos((x + {c0})^\\circ)')
+            return dict(q=f"If {ang_} and {M(f'0 < x + {c0} < 90')}, what is the value of {M('x')}?",
+                        expl=f"sin \u03b8 = cos(90\u00b0 - \u03b8), so x + {c0} = 90 - {k} = {90 - k}, and x = {90 - k - c0}.",
+                        **numeric(r, 90 - k - c0, spr, [k - c0, 90 - k, 90 - k + c0, 180 - k - c0]))
+        # angle of elevation with a known triangle
+        a2, b2, c2 = r.choice(TRIPLES[:4]); kk = r.choice([2, 3, 4, 5])
+        th_, tan_ = M('\\theta'), M('\\tan \\theta')
+        return dict(q=f"A ramp rises {a2 * kk} feet over a horizontal distance of {b2 * kk} feet. If {th_} is the angle the ramp makes with the ground, what is the value of {tan_}?",
+                    expl=f"tan \u03b8 = opposite/adjacent = rise/run = {a2 * kk}/{b2 * kk} = {a2}/{b2}.",
+                    **frac_res(r, a2, b2, [(b2, a2), (a2, c2), (b2, c2), (c2, a2)], spr))
     if d == 1:
         ratio = r.choice(['cos', 'tan']); ans = {'cos': (b, c), 'tan': (a, b)}[ratio]
         s_ = M(f'\\sin A = \\frac{{{a}}}{{{c}}}'); t_ = M('\\' + ratio + ' A')
@@ -653,6 +799,13 @@ def right_tri_trig(r, d, spr):
         return dict(q=f"A right triangle has two legs of equal length, and its area is {dec(Fr(L * L, 2))} square units. What is the length of the hypotenuse?",
                     expl=f"Area = \u00bd\u00b7leg\u00b2 = {Fr(L * L, 2)}, so each leg is {L}. Hypotenuse = {L}\u221a2.",
                     **mc(r, f(f"{L}\\sqrt{{2}}"), [f(f"{L}"), f(f"{2 * L}"), f(f"{L}\\sqrt{{3}}")]))
+    if r.random() < .5:
+        rr, n = r.choice([3, 4, 5, 6, 8, 9, 10, 12]), r.choice([2, 3, 4, 6])
+        arc = Fr(rr, n)
+        ang_ = M(f'\\frac{{\\pi}}{{{n}}}')
+        return dict(q=f"A circle has a radius of {rr} units. A central angle of the circle measures {ang_} radians. The arc it cuts off has length {KPI} units. What is the value of {M('k')}?",
+                    expl=f"Arc length = radius \u00d7 angle in radians = {rr} \u00d7 \u03c0/{n} = {dec(arc)}\u03c0.",
+                    **numeric(r, arc, spr, [Fr(rr * 180, n), Fr(rr * rr, n), Fr(n, rr), 2 * arc]))
     n, k = r.choice([2, 3, 4, 5, 6, 9, 10, 12]), r.randint(1, 3)
     ang_ = M(f'\\frac{{{k}\\pi}}{{{n}}}')
     return dict(q=f"An angle has a measure of {ang_} radians. What is the measure of the angle, in degrees?", expl=f"Multiply by 180/\u03c0: {k} \u00d7 180 \u00f7 {n} = {Fr(180 * k, n)}.",
@@ -660,11 +813,41 @@ def right_tri_trig(r, d, spr):
 
 
 def circles(r, d, spr):
+    if d == 0 and r.random() < .6:
+        t = r.random(); rr = r.randint(2, 15)
+        if t < .33:
+            return dict(q=f"A circle has a radius of {rr} meters. The circumference of the circle is {KPI} meters. What is the value of {M('k')}?",
+                        expl=f"C = 2\u03c0r = 2\u03c0({rr}) = {2 * rr}\u03c0.", **numeric(r, 2 * rr, spr, [rr, rr * rr, 4 * rr, rr + 2]))
+        if t < .66:
+            dd = 2 * rr
+            return dict(q=f"A circular garden has a diameter of {dd} feet. The area of the garden is {KPI} square feet. What is the value of {M('k')}?",
+                        expl=f"The radius is half the diameter, {rr}. A = \u03c0r\u00b2 = {rr * rr}\u03c0.", **numeric(r, rr * rr, spr, [dd * dd, dd, 2 * rr * rr, rr]))
+        rr = r.choice([2, 4, 6, 8, 10, 12]); frac, ang = r.choice([(Fr(1, 4), 90), (Fr(1, 2), 180), (Fr(1, 3), 120), (Fr(1, 6), 60)])
+        area = frac * rr * rr
+        return dict(q=f"A circle has a radius of {rr} centimeters. A sector of the circle has a central angle of {ang}\u00b0. The area of the sector is {KPI} square centimeters. What is the value of {M('k')}?",
+                    expl=f"The sector is {ang}/360 = {frac} of the circle: {frac} \u00d7 \u03c0({rr})\u00b2 = {dec(area)}\u03c0.",
+                    **numeric(r, area, spr, [rr * rr, frac * 2 * rr, area * 2, Fr(ang, 360) * rr]))
     if d == 0:
         rr = r.randint(2, 12)
         c_ = M(f'{2 * rr}\\pi')
         return dict(q=f"The circumference of a circle is {c_} inches. The area of the circle is {KPI} square inches. What is the value of {M('k')}?",
                     expl=f"C = 2\u03c0r, so r = {rr}. Area = \u03c0r\u00b2 = {rr * rr}\u03c0.", **numeric(r, rr * rr, spr, [2 * rr, rr, rr * rr * 2, 4 * rr * rr]))
+    if d == 1 and r.random() < .5:
+        if r.random() < .5:
+            h, k, rr = r.randint(-8, 8), r.randint(-8, 8), r.randint(2, 11)
+            eq_ = M(f"(x{sg(-h)})^2 + (y{sg(-k)})^2 = {rr * rr}")
+            ask = r.choice(['r', 'h', 'k'])
+            ans = {'r': rr, 'h': h, 'k': k}[ask]
+            what = {'r': 'radius of the circle', 'h': 'x-coordinate of the center of the circle', 'k': 'y-coordinate of the center of the circle'}[ask]
+            return dict(q=f"In the xy-plane, the graph of {eq_} is a circle. What is the {what}?",
+                        expl=f"(x - h)\u00b2 + (y - k)\u00b2 = r\u00b2 has center (h, k) and radius r. Here the center is ({h}, {k}) and r = \u221a{rr * rr} = {rr}. Watch the signs: the center coordinates are the opposites of the numbers in the parentheses.",
+                        **numeric(r, ans, spr, [rr * rr if ask == 'r' else -ans, -h if ask == 'k' else rr, 2 * rr if ask == 'r' else ans + 1, ans - 2]))
+        rr = r.choice([3, 4, 6, 9, 12]); ang = r.choice([30, 40, 60, 90, 120, 150])
+        area = Fr(ang, 360) * rr * rr
+        a_ = M(f"{dec(area)}\\pi" if area.denominator == 1 else f"\\frac{{{area.numerator}}}{{{area.denominator}}}\\pi")
+        return dict(q=f"A sector of a circle with radius {rr} has an area of {a_}. What is the measure, in degrees, of the sector&rsquo;s central angle?",
+                    expl=f"The whole circle has area {rr * rr}\u03c0. The sector is {dec(area)}/{rr * rr} = {Fr(ang, 360)} of it, so the angle is {Fr(ang, 360)} \u00d7 360\u00b0 = {ang}\u00b0.",
+                    **numeric(r, ang, spr, [ang * 2, 360 - ang, Fr(ang, 2), ang + 30]))
     if d == 1:
         th, rr = r.choice([30, 45, 60, 90, 120, 180]), r.randint(3, 12)
         arc = Fr(2 * rr * th, 360)

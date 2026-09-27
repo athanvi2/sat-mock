@@ -1,4 +1,4 @@
-"""How many distinct questions each skill can produce at each difficulty (counted by uid / text over many seeds)."""
+"""How many distinct questions each skill can produce at each difficulty (counted by uid, plus the figure when there is one, over many seeds)."""
 import sys, os, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bank import pool
@@ -12,7 +12,7 @@ for k, s in SKILLS.items():
         for seed in range(1, 1500):
             try:
                 q = pool.make(k, d, seed, False)
-                seen.add(q['uid'] if not q['uid'].startswith('m:') else q['q'])
+                seen.add(q['uid'] + repr(q.get('figure', '')))  # uids ignore choice order; a different plot is a different question
             except Exception:
                 pass
         row.append(len(seen))

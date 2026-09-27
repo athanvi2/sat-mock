@@ -3,6 +3,8 @@ RW dicts carry: passage (HTML, may be ''), q (stem), type='mc', choices, answer,
 Authored records live in rw_content.py / rw_content2.py; parametric skills are built here."""
 import bank.rw_content as _c1  # noqa: F401  (registers records)
 import bank.rw_content2 as _c2  # noqa: F401
+import bank.rw_content3 as _c3  # noqa: F401  (parts 3-4 load last: authored uids are index-based)
+import bank.rw_content4 as _c4  # noqa: F401
 from bank.rw_content import RECS
 
 Q_STD = 'Which choice completes the text so that it conforms to the conventions of Standard English?'
@@ -82,6 +84,31 @@ TPAIRS = [
     (2, 'meanwhile', "Engineers in the north worked to repair the power lines.", "crews in the south restored water service.", ['addition', 'similarity'], 'Meanwhile,'),
     (2, 'instead', "Ortiz did not use commercial dyes for the fabric.", "she extracted pigments from local plants.", ['contrast', 'emphasis'], 'Instead,'),
     (2, 'earlier', "The first draft of the treaty was signed in March.", "negotiators had spent the previous year disputing borders.", ['contrast', 'emphasis', 'addition'], 'Before that,'),
+    # added 2026-09: more pairs so transitions stop repeating within a few weeks (append only; uids are index-based)
+    (0, 'result', "The team practiced passing every day for a month.", "its passing improved noticeably by the end of the season.", ['sequence', 'addition', 'meanwhile']),
+    (0, 'contrast', "Penguins are birds.", "they cannot fly.", ['emphasis', 'instead']),
+    (0, 'example', "Some foods are high in vitamin C.", "oranges and strawberries contain large amounts of it.", ['addition', 'emphasis']),
+    (0, 'addition', "The new library has a large reading room.", "it offers free classes on weekends.", ['similarity', 'emphasis', 'meanwhile']),
+    (0, 'sequence', "First, the students chose a topic for their project.", "they gathered sources at the library.", ['result', 'addition', 'meanwhile']),
+    (0, 'result', "The river flooded the only road into the village.", "supplies had to be delivered by boat.", ['sequence', 'meanwhile']),
+    (0, 'contrast', "The movie was very long.", "the audience stayed engaged until the end.", ['emphasis']),
+    (0, 'similarity', "Bats use sound to find their way in the dark.", "dolphins use sound to navigate murky water.", ['addition', 'example']),
+    (1, 'contrast', "Many people assume that deserts are lifeless.", "the Sonoran Desert supports thousands of plant and animal species.", ['emphasis', 'instead', 'example']),
+    (1, 'result', "The factory switched from coal to natural gas.", "its carbon emissions fell by nearly half.", ['sequence', 'addition', 'meanwhile']),
+    (1, 'example', "Some architects design buildings that generate their own energy.", "one office tower in Oslo produces more electricity than it uses.", ['addition', 'emphasis']),
+    (1, 'addition', "The drought reduced the region&rsquo;s wheat harvest.", "it forced ranchers to buy feed for their cattle.", ['similarity', 'emphasis', 'result', 'meanwhile']),
+    (1, 'earlier', "Today the old mill is a popular art museum.", "it produced textiles for more than a century.", ['contrast', 'sequence']),
+    (1, 'instead', "The author did not describe the character&rsquo;s appearance directly.", "she revealed it through other characters&rsquo; reactions.", ['contrast', 'emphasis']),
+    (1, 'meanwhile', "Scientists on the ship collected water samples from the surface.", "a robotic submarine gathered samples from the ocean floor.", ['addition', 'similarity', 'contrast']),
+    (1, 'similarity', "Ancient Roman cities had public baths where people gathered to talk.", "modern community centers give neighbors a shared place to meet.", ['addition']),
+    (2, 'contrast', "The new vaccine produced a strong immune response in laboratory animals.", "early human trials have shown a weaker effect than researchers expected.", ['addition', 'emphasis', 'instead'], 'However,'),
+    (2, 'emphasis', "The composer rarely revised her scores.", "several of her symphonies were published exactly as she first wrote them.", ['addition', 'example', 'result'], 'Indeed,'),
+    (2, 'result', "The two species of finch compete for the same seeds.", "where both are present, each has evolved a different beak size that suits a different seed.", ['sequence', 'addition', 'emphasis', 'meanwhile'], 'Consequently,'),
+    (2, 'instead', "Historians once treated the letters as simple personal correspondence.", "they read them as carefully crafted political arguments.", ['contrast', 'emphasis', 'sequence', 'earlier'], 'Today, however,'),
+    (2, 'contrast', "Early critics dismissed the novel as a minor adventure story.", "later readers found in it a sharp critique of colonial power.", ['instead', 'emphasis', 'addition'], 'By contrast,'),
+    (2, 'addition', "The policy lowered costs for patients.", "it reduced the paperwork that doctors had to complete.", ['similarity', 'emphasis', 'result', 'meanwhile'], 'Moreover,'),
+    (2, 'example', "Some insects have evolved remarkable defenses against predators.", "the bombardier beetle sprays a boiling chemical mixture from its abdomen.", ['addition', 'emphasis'], 'For example,'),
+    (2, 'meanwhile', "While the orchestra rehearsed in the main hall, the soloist practiced alone in a small room upstairs.", "the stage crew adjusted the lights for the evening performance.", ['addition', 'sequence', 'similarity', 'contrast'], 'Meanwhile,'),
 ]
 
 
@@ -250,14 +277,20 @@ SV = {
 }
 TENSE = {
     0: [("After the storm ended, the crew inspected the roof and", "replaced", ["replaces", "will replace", "replacing"], "the damaged shingles."),
-        ("Yesterday, Marcus walked to the station, bought a ticket, and", "boarded", ["boards", "will board", "boarding"], "the next train to the city.")],
+        ("Yesterday, Marcus walked to the station, bought a ticket, and", "boarded", ["boards", "will board", "boarding"], "the next train to the city."),
+        ("Last summer, the Ruiz family", "visited", ["visits", "will visit", "visiting"], "three national parks in two weeks."),
+        ("Every morning before sunrise, the baker", "lights", ["lit", "will light", "lighting"], "the ovens and begins mixing the dough."),
+        ("Next spring, the city", "will open", ["opened", "has opened", "opening"], "a new public pool beside the library.")],
     1: [("When the museum first opened in 1925, it displayed only a few paintings, but by 1950 its collection", "grew", ["grows", "will grow", "has grown"], "to more than two thousand works."),
         ("The novel follows a young sailor who leaves home and", "returns", ["returned", "had returned", "returning"], "years later as a captain.")],
     2: [("By the time the rescuers reached the summit, the climbers", "had been waiting", ["have been waiting", "are waiting", "will have waited"], "for two days without food."),
         ("If the committee had reviewed the data earlier, it", "would have caught", ["will catch", "would catch", "caught"], "the error before the report was published.")],
 }
 PRON = {
-    0: [("The company revised", "its", ["it&rsquo;s", "their", "they&rsquo;re"], "policy after receiving hundreds of complaints.", "&ldquo;Its&rdquo; is the possessive form that agrees with the singular noun &ldquo;company.&rdquo; &ldquo;It&rsquo;s&rdquo; means &ldquo;it is.&rdquo;")],
+    0: [("The company revised", "its", ["it&rsquo;s", "their", "they&rsquo;re"], "policy after receiving hundreds of complaints.", "&ldquo;Its&rdquo; is the possessive form that agrees with the singular noun &ldquo;company.&rdquo; &ldquo;It&rsquo;s&rdquo; means &ldquo;it is.&rdquo;"),
+        ("The students finished", "their", ["there", "they&rsquo;re", "its"], "science projects a day early.", "&ldquo;Their&rdquo; is the possessive pronoun for the plural &ldquo;students.&rdquo; &ldquo;There&rdquo; names a place, and &ldquo;they&rsquo;re&rdquo; means &ldquo;they are.&rdquo;"),
+        ("The dog wagged", "its", ["it&rsquo;s", "its&rsquo;", "their"], "tail when the children came home.", "&ldquo;Its&rdquo; is the possessive form for the singular &ldquo;dog.&rdquo; &ldquo;It&rsquo;s&rdquo; means &ldquo;it is,&rdquo; and &ldquo;its&rsquo;&rdquo; is not a word."),
+        ("The coach told Maya and", "me", ["I", "myself", "mine"], "that practice would start early.", "The pronoun is an object of &ldquo;told,&rdquo; so the object form &ldquo;me&rdquo; is correct.")],
     1: [("The company announced that", "it", ["they", "them", "those"], "would move its headquarters next year.", "&ldquo;Company&rdquo; is a singular noun, so the pronoun must be singular: &ldquo;it.&rdquo;"),
         ("The award goes to the student", "whose", ["who&rsquo;s", "who", "whom"], "essay best captures the spirit of the program.", "&ldquo;Whose&rdquo; shows possession of &ldquo;essay.&rdquo; &ldquo;Who&rsquo;s&rdquo; means &ldquo;who is.&rdquo;"),
         ("The manager thanked Priya and", "me", ["I", "myself", "my"], "for finishing the report early.", "The pronoun is the object of &ldquo;thanked,&rdquo; so the object form &ldquo;me&rdquo; is needed.")],
@@ -270,6 +303,9 @@ POSS = [
     ("Ana and Lucia are sisters, and the", "sisters&rsquo;", ["sister&rsquo;s", "sisters", "sisters&rsquo;s"], "bicycles were parked outside.", "The bicycles belong to both sisters, so use the plural possessive."),
 ]
 PARA = {
+    0: [("On Saturdays, Leo likes swimming, biking, and", "hiking", ["to hike", "he hikes", "a hike"], "."),
+        ("The recipe calls for flour, sugar, and", "two eggs", ["cracking two eggs", "to add two eggs", "you add two eggs"], "."),
+        ("The new park has a playground, a pond, and", "a walking trail", ["walking on a trail", "to walk on trails", "you can walk"], ".")],
     1: [("The volunteers spent the day sorting donations, packing boxes, and", "loading trucks", ["to load trucks", "they loaded trucks", "trucks were loaded"], "."),
         ("The new library is designed to be spacious, energy efficient, and", "easy to navigate", ["it is easy to navigate", "navigation is easy", "having easy navigation"], ".")],
     2: [("The study examined how quickly the plants grew, how much water they consumed, and", "how well they resisted disease", ["their resistance to disease was measured", "resisting disease", "the disease resistance"], "."),
@@ -289,7 +325,7 @@ COMPLETE = {
 
 
 def form_structure(r, d, spr):
-    kinds = {0: ['sv', 'tense', 'pron'], 1: ['sv', 'tense', 'pron', 'poss', 'para', 'complete'], 2: ['sv', 'tense', 'pron', 'para', 'dangle']}[d]
+    kinds = {0: ['sv', 'tense', 'pron', 'para', 'poss'], 1: ['sv', 'tense', 'pron', 'poss', 'para', 'complete'], 2: ['sv', 'tense', 'pron', 'para', 'dangle']}[d]
     k = r.choice(kinds)
     if k == 'sv':
         i = r.randrange(len(SV[d])); subj, num, (sg, pl), rest = SV[d][i]
@@ -430,25 +466,50 @@ def coe_quant(r, d, spr):
                       (w2, 'The values are reversed, so this describes a decline.'),
                       (w3, 'The starting value is matched to the wrong year.')],
                      'coe_quant:trend:%s:%d' % (th['col'], vals[0]))
-    # hard: two-metric claim
-    cities = r.sample(['Ashford', 'Brenner', 'Calloway', 'Dunmore', 'Easton', 'Fairmont'], 4)
+    # hard: a claim that two measures need not go together; the key is the one row where the first is high and the second low
+    ti = r.randrange(len(QT_TWO)); th = QT_TWO[ti]
+    names = r.sample(th['names'], 4)
     a_hi, b_lo = r.randint(70, 88), r.randint(8, 22)
-    rows = [(cities[0], a_hi, b_lo), (cities[1], r.randint(70, 88), r.randint(60, 80)), (cities[2], r.randint(20, 35), r.randint(8, 22)), (cities[3], r.randint(20, 35), r.randint(60, 80))]
+    rows = [(names[0], a_hi, b_lo), (names[1], r.randint(70, 88), r.randint(60, 80)), (names[2], r.randint(20, 35), r.randint(8, 22)), (names[3], r.randint(20, 35), r.randint(60, 80))]
     while rows[1][1] == a_hi: rows[1] = (rows[1][0], r.randint(70, 88), rows[1][2])
-    r.shuffle(rows)
-    table = _tbl('Bicycle ownership and bicycle commuting by town', ['Town', 'Households owning a bicycle', 'Workers commuting by bicycle'], [[t, '%d%%' % a, '%d%%' % b] for t, a, b in rows])
-    passage = ('A transportation analyst noted that owning a bicycle does not necessarily mean people commute by bicycle. For example, ______<br><br>%s' % table)
-    q = 'Which choice most effectively uses data from the table to illustrate the analyst&rsquo;s point?'
-    t0, t1, t2, t3 = [x for x in [(cities[0], a_hi, b_lo)]][0], None, None, None
+    rows.sort(key=lambda t: th['names'].index(t[0]))  # tables list rows in natural order (towns A-Z, ages youngest first)
+    table = _tbl(th['title'], [th['ent'], th['a'], th['b']], [[t, '%d%%' % a, '%d%%' % b] for t, a, b in rows])
+    passage = '%s For example, ______<br><br>%s' % (th['claim'], table)
+    q = 'Which choice most effectively uses data from the table to illustrate the %s&rsquo;s point?' % th['who']
     d_ = {n: (a, b) for n, a, b in rows}
-    ok = 'in %s, %d%% of households own a bicycle but only %d%% of workers commute by bicycle.' % (cities[0], d_[cities[0]][0], d_[cities[0]][1])
-    w1 = 'in %s, %d%% of households own a bicycle and %d%% of workers commute by bicycle.' % (cities[1], d_[cities[1]][0], d_[cities[1]][1])
-    w2 = 'in %s, only %d%% of households own a bicycle and only %d%% of workers commute by bicycle.' % (cities[2], d_[cities[2]][0], d_[cities[2]][1])
-    w3 = 'in %s, only %d%% of households own a bicycle but %d%% of workers commute by bicycle.' % (cities[3], d_[cities[3]][0], d_[cities[3]][1])
-    return build(r, passage, q, (ok, 'The point needs high ownership together with low commuting; only %s has both.' % cities[0]),
-                 [(w1, 'Both values are high, so ownership does go with commuting here.'), (w2, 'Both values are low, which does not show a gap between owning and commuting.'),
-                  (w3, 'Low ownership with high commuting is the reverse of the analyst&rsquo;s point.')],
-                 'coe_quant:two:%s' % cities[0])
+    say = lambda n, lead: th['say'] % dict(n=n, a=d_[n][0], b=d_[n][1], lead=lead)
+    # every choice uses the same neutral connector, so the wording never hints at which row shows the gap
+    ok = say(names[0], 'and')
+    w1, w2, w3 = say(names[1], 'and'), say(names[2], 'and'), say(names[3], 'and')
+    uid = 'coe_quant:two:%s' % names[0] if ti == 0 else 'coe_quant:two%d:%s' % (ti, names[0])
+    return build(r, passage, q, (ok, 'The point needs a high first value together with a low second value; only %s has both.' % names[0]),
+                 [(w1, 'Both values are high, so here the two measures do go together.'), (w2, 'Both values are low, which does not show a gap between the two measures.'),
+                  (w3, 'A low first value with a high second value is the reverse of the point.')], uid)
+
+
+# (claim, who makes it, table title, entity column, measure A, measure B, sentence pattern, entity names)
+QT_TWO = [
+    dict(claim='A transportation analyst noted that owning a bicycle does not necessarily mean people commute by bicycle.', who='analyst',
+         title='Bicycle ownership and bicycle commuting by town', ent='Town', a='Households owning a bicycle', b='Workers commuting by bicycle',
+         say='in %(n)s, %(a)d%% of households own a bicycle %(lead)s %(b)d%% of workers commute by bicycle.',
+         names=['Ashford', 'Brenner', 'Calloway', 'Dunmore', 'Easton', 'Fairmont']),
+    dict(claim='A librarian observed that having a library card does not necessarily mean a person borrows books.', who='librarian',
+         title='Library cards and borrowing by county', ent='County', a='Residents with a library card', b='Residents who borrowed a book last year',
+         say='in %(n)s County, %(a)d%% of residents have a library card %(lead)s %(b)d%% borrowed a book last year.',
+         names=['Harlan', 'Juniper', 'Kessler', 'Linwood', 'Marlow', 'Norcross']),
+    dict(claim='An education researcher argued that home internet access does not guarantee that students complete online homework.', who='researcher',
+         title='Home internet access and online homework completion by school', ent='School', a='Students with home internet', b='Online assignments completed',
+         say='at %(n)s, %(a)d%% of students have home internet access %(lead)s %(b)d%% of online assignments were completed.',
+         names=['Oakridge High', 'Pinecrest High', 'Quarry Hill High', 'Riverside High', 'Stonebridge High', 'Twin Lakes High']),
+    dict(claim='A public-health researcher noted that knowing a health recommendation does not necessarily mean people follow it.', who='researcher',
+         title='Awareness of and adherence to a sleep recommendation by age group', ent='Age group', a='Aware of the recommendation', b='Report following it',
+         say='among %(n)s, %(a)d%% are aware of the recommendation %(lead)s %(b)d%% report following it.',
+         names=['adults aged 18&ndash;24', 'adults aged 25&ndash;34', 'adults aged 35&ndash;44', 'adults aged 45&ndash;54', 'adults aged 55&ndash;64', 'adults aged 65 and older']),
+    dict(claim='An agricultural economist observed that owning irrigation equipment does not necessarily mean farmers use it regularly.', who='economist',
+         title='Irrigation equipment ownership and regular use by district', ent='District', a='Farms owning irrigation equipment', b='Farms irrigating weekly',
+         say='in the %(n)s district, %(a)d%% of farms own irrigation equipment %(lead)s %(b)d%% irrigate weekly.',
+         names=['Alder', 'Birchwood', 'Cedar Plains', 'Dover', 'Elmstead', 'Foxglen']),
+]
 
 
 GEN = dict(

@@ -23,6 +23,7 @@ python tests/fuzz_rw.py          # same for reading & writing
 python tests/smoke.py            # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock + CRUD, every skill's pages
 python tests/score_check.py      # simulated students: 80% ranges cover ~80%, no bias, edge cases (drilling, skipping, priors, recency)
 python tests/plan_check.py       # the calendar follows every rule in planner.RULES (the text parents read)
+python tests/hw_check.py         # Desktop homework folders, in a temp dir: create, keep, replace on plan change, roll weekly, rename
 python tests/rw_quality.py       # RW answer choices give no length giveaway (see "Distractor rule")
 python tests/bank_report.py      # prints how many distinct questions each skill can produce at each difficulty
 ```
@@ -47,7 +48,11 @@ auth.py           Instructor PIN (pbkdf2) + lockout, per-install cookie secret, 
 analytics.py      Dashboard payload (estimates, timeline incl. reported scores, weekly activity, per-skill mastery, recommendations) + server-side SVG charts.
 planner.py        Per-student calendar: past sessions, tutor events, and a plan recomputed on every view with a "why" per item. RULES is the
                   parent-facing wording of exactly what plan() does; change both together (tests/plan_check.py asserts the rules).
-pdfout.py         HTML -> PDF through a local headless Chrome (parent report, guide). No Python PDF dependency; CHROME_PATH overrides.
+pdfout.py         HTML -> PDF through a local headless Chrome (parent report, guide, homework). No Python PDF dependency; CHROME_PATH overrides.
+hwsync.py         Keeps ~/Desktop/<Name>_HW in step with each student's calendar: this week's homework PDF at the top (replaced when the
+                  plan changes or the due date passes), every sheet + answer key kept in History/<timestamp>/. Background thread;
+                  triggered by finished sessions, score/event/student changes, and hourly. Writes to the Desktop ONLY when SAT_DB is
+                  unset (the real database) or HW_ROOT is set, so tests never touch it.
 tools/build_guide_pdf.py   Regenerates docs/Parent-Guide.pdf from templates/guide.html.
 app.py            Flask routes: student flow (join, /start diagnostic, practice, runner APIs), instructor (/instructor/*). Read module_score_ratio()/advance() for adaptive routing and api_check() for assist levels before touching them.
 templates/        Jinja. base.html is the shell (nav differs for student/instructor). report.html and guide.html are standalone print-first documents. runner.html + static/runner.js is the exam-taking UI, the most complex piece. _progress.html is the shared progress report (student, tutor, parent views). instructor/ holds the instructor pages.

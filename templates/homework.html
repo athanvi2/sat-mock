@@ -12,7 +12,7 @@
 <div class="paper">
   <div class="cover">
     <h1>Homework: {{ skill['name'] }}</h1>
-    <p>Name: {% if st %}<b>{{ st['name'] }}</b>{% else %}<span class="blank" style="width:14rem"></span>{% endif %} &nbsp; Date: <span class="blank"></span></p>
+    <p>Name: {% if st %}<b>{{ st['name'] }}</b>{% else %}<span class="blank" style="width:14rem"></span>{% endif %} &nbsp; {% if due %}Due: <b>{{ due }}</b>{% else %}Date: <span class="blank"></span>{% endif %}</p>
     <h2>What can you see?</h2>
     <ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
     <h2>How to do this</h2>

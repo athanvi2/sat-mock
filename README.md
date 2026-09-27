@@ -33,6 +33,7 @@ In practice the student chooses the help level: **hint first** (a wrong first tr
 - **Guide for families**: `docs/Parent-Guide.pdf` (also at `/guide` in the app, with a live PDF download). It explains the test, the weekly rhythm, the help levels, the score estimate, how the plan is chosen, and privacy. Rebuild it after editing `templates/guide.html` with `python tools/build_guide_pdf.py`.
 - **Parent report**: Instructor > student > *Parent report*. Score range and change, practice in the last 30 days, strengths and focus areas, the next four weeks of the plan with the reason for each item, and your note. *Download PDF* uses the Chrome on this Mac.
 - **Plan and calendar**: every student has one (*My plan* for students; Instructor > student > *Plan and calendar*). It shows past sessions, today, and the plan, each planned item with a "why", and what changed since the last look. Add notes or "no session" days from the instructor view.
+- **Homework folders**: `~/Desktop/<Student_Name>_HW` holds each student's homework for this week as a PDF, made automatically once the diagnostic (or an entered score) puts homework on the calendar. When the plan changes or the due date passes, the old sheet is replaced; every sheet, with its answer key, stays in `History/` under a date and time. The instructor page for each student shows the folder, with *Update now* and *Open folder*.
 - **Dark mode**: follows the device, or pick Light/Dark with the Theme button (remembered per device). Printouts and PDFs are always light.
 
 ## How the pieces map to the official Digital SAT
@@ -66,5 +67,6 @@ All questions are original (not College Board items). Math has parametric genera
     python tests/smoke.py       # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock and student management
     python tests/score_check.py # the score estimate on simulated students
     python tests/plan_check.py  # the calendar follows the rules the parent guide describes
+    python tests/hw_check.py    # homework folders (in a temporary folder, never the real Desktop)
     python tests/fuzz_math.py   # generators build valid, non-duplicate-choice questions
     python tests/fuzz_rw.py

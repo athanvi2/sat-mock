@@ -90,5 +90,13 @@ check([i for i in pl['items'] if i.get('session_id') == sid and i['status'] == '
 grid = planner.month_grid(2026, 10, pl['items'], today)
 check(all(len(w) == 7 for w in grid) and grid[0][0]['day'].weekday() == 6, 'month grid is whole weeks starting on Sunday')
 
+# 7. lessons already held count: recomputing the plan later does not re-teach the same top skill every week
+e = student('Rotation Student', onboard='prior')
+db.x('INSERT INTO prior_scores(student_id, test, rw, math, taken, created) VALUES (?,?,?,?,?,?)', (e, 'SAT', 500, 500, '2026-06-06', time.time()))
+wk1 = future(planner.plan(e, today), today, ('lesson',))[0]           # planned on Sep 28 for Sun Oct 4
+nxt = future(planner.plan(e, datetime.date(2026, 10, 5)), datetime.date(2026, 10, 5), ('lesson',))[0]  # replanned after it
+check(wk1['day'] == datetime.date(2026, 10, 4) and nxt['title'] != wk1['title'], 'the lesson held on Oct 4 (%s) is not simply repeated on %s (%s)' % (wk1['title'], nxt['day'], nxt['title']))
+check(planner.recent_lessons(e, datetime.date(2026, 10, 5)) == {wk1['skill']: 1}, 'recent lessons come from the saved plan for that Sunday')
+
 print('\n%s' % ('ALL PLAN CHECKS PASSED' if not fails else '%d FAILED' % len(fails)))
 sys.exit(1 if fails else 0)

@@ -11,8 +11,9 @@ The rules (RULES below is the parent-facing wording of exactly what plan() does)
      diagnostic.
   3. Each lesson's focus is the skill with the highest expected score gain: its share of the section's questions times
      the chance of missing a medium question at the current level (the same number analytics.recommendations uses).
-     After a skill is scheduled its priority is cut in half for later weeks, so the plan moves on instead of repeating,
-     and it comes back if it is still weak. No more than two lessons in a row on the same section.
+     After a skill is scheduled (or was taught in the last three weeks, per the saved daily plans) its priority is cut in
+     half, so the plan moves on instead of repeating, and it comes back if it is still weak. No more than two lessons in
+     a row on the same section.
   4. Homework on the Wednesday after each lesson, on that lesson's skill (spaced practice).
   5. A skill whose accuracy is slipping gets a short refresher on a Friday, at most one a week.
   6. With a test date set: a full-length practice test 8-14 days before it, light review only in the final week.
@@ -133,6 +134,8 @@ def plan(student_id, today=None):
     done_today = any(datetime.date.fromtimestamp(s['created']) == today for s in sess)
     pr = priorities(d)
     gains = dict((x['skill'], x['gain']) for x in pr)
+    for k, n in recent_lessons(student_id, today).items():  # rule 3 also covers lessons already held, not just planned ones
+        if k in gains: gains[k] *= 0.5 ** n
     info = dict((x['skill'], x) for x in pr)
     recent_sections, lesson_no, refresher_weeks = [], 0, set()
     slipping = [x for x in pr if x['trend'] == 'slipping']
@@ -199,6 +202,23 @@ def plan(student_id, today=None):
     changes = _changes(student_id, items, today)
     return dict(items=items, changes=changes, start=min([i['day'] for i in items] + [today]), end=end, test_day=test_day,
                 priorities=pr, dashboard=d, student=st)
+
+
+def recent_lessons(student_id, today, days=21):
+    """Skills that had a lesson on a Sunday in the last `days` days: the lesson on the plan as it stood on that Sunday
+    (the latest saved snapshot from on or before that day). Returns {skill: count}."""
+    by_name = dict((v['name'], k) for k, v in SKILLS.items())
+    snaps = [(r['day'], json.loads(r['plan_json'])) for r in db.q(
+        'SELECT day, plan_json FROM plan_snapshots WHERE student_id=? AND day<? ORDER BY day', (student_id, today.isoformat()))]
+    out = {}
+    for sun in sundays(today - datetime.timedelta(days=days), today - datetime.timedelta(days=1)):
+        iso = sun.isoformat()
+        before = [p for day, p in snaps if day <= iso]
+        if not before: continue
+        for x in before[-1]:
+            if x['day'] == iso and x['kind'] == 'lesson' and x['title'] in by_name:
+                out[by_name[x['title']]] = out.get(by_name[x['title']], 0) + 1
+    return out
 
 
 def _changes(student_id, items, today):

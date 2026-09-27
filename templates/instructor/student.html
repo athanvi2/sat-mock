@@ -13,6 +13,23 @@
 <div style="margin-top:1rem"></div>
 {% include '_progress.html' %}
 
+{% if hw %}
+<section class="sheet">
+  <h2>Homework folder</h2>
+  <p class="small"><code>{{ hw['folder'] }}</code></p>
+  {% if hw['files'] %}<p>This week: {% for f in hw['files'] %}<b>{{ f[:-4] }}</b>{% if not loop.last %}; {% endif %}{% endfor %}</p>
+  {% elif hw['exists'] %}<p class="muted">No homework due right now.</p>
+  {% else %}<p class="muted">Created automatically once the calendar has a homework assignment (after the diagnostic or an entered score).</p>{% endif %}
+  {% if hw['status'] %}<p class="small {{ 'muted' if hw['status']['ok'] else 'errline' }}">Last update {{ hw['status']['when']|ago }}: {{ hw['status']['message'] }}</p>{% endif %}
+  {% if not hw['enabled'] %}<p class="small errline">PDF export needs Google Chrome on this Mac.</p>{% endif %}
+  <form method="post" action="{{ url_for('instructor_hw_folder', stid=st['id']) }}" class="toolbar">
+    <button class="btn ghost" name="act" value="sync">Update now</button>
+    {% if hw['exists'] %}<button class="btn ghost" name="act" value="open">Open folder</button>{% endif %}
+  </form>
+  <p class="hint">Updates by itself when a session finishes, when scores or the calendar change, and every hour. Replaced sheets stay in the History subfolder with a time stamp.</p>
+</section>
+{% endif %}
+
 <section class="sheet">
   <h2>Sessions</h2>
   {% if sessions %}

@@ -9,6 +9,7 @@ import random
 import re
 import socket
 import subprocess
+import sys
 import time
 from fractions import Fraction
 
@@ -17,6 +18,7 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, ses
 import analytics
 import auth
 import db
+import hwsync
 import pdfout
 import planner
 import scoring as S
@@ -336,6 +338,7 @@ def advance(sess):
     db.x('UPDATE sessions SET finished=? WHERE id=?', (time.time(), sess['id']))
     if sess['purpose'] == 'diagnostic':
         db.x("UPDATE students SET onboard='diagnostic' WHERE id=?", (sess['student_id'],))
+    hwsync.sync_soon(app, sess['student_id'])  # new results can change the plan, and so this week's homework
     return None
 
 
@@ -437,6 +440,7 @@ def scores():
             db.x('INSERT INTO prior_scores(student_id, test, rw, math, taken, created) VALUES (?,?,?,?,?,?)',
                  (s['id'], test, rw, mt, taken.isoformat(), time.time()))
             db.x("UPDATE students SET onboard='prior' WHERE id=? AND onboard IN ('new', 'skipped')", (s['id'],))
+            hwsync.sync_soon(app, s['id'])
             return redirect(url_for('home') if f.get('from') == 'start' else url_for('scores'))
     return render_template('scores.html', s=s, err=err, f=f, tests=PRIOR_TESTS, rows=db.prior_scores(s['id']),
                            today=datetime.date.today().isoformat(), src=request.values.get('from', ''))
@@ -450,6 +454,7 @@ def delete_score(pid):
         s = need_student()
         if p['student_id'] != s['id']: abort(404)
     db.x('DELETE FROM prior_scores WHERE id=?', (pid,))
+    hwsync.sync_soon(app, p['student_id'])
     return redirect(request.referrer or url_for('scores'))
 
 
@@ -860,6 +865,7 @@ def instructor_add_event(stid):
     title = ' '.join(f.get('title', '').split())[:80] or ('No session' if kind == 'skip' else 'Note')
     db.x('INSERT INTO events(student_id, day, kind, title, note, created) VALUES (?,?,?,?,?,?)',
          (stid, day.isoformat(), kind, title, f.get('note', '').strip()[:400], time.time()))
+    hwsync.sync_soon(app, stid)
     return redirect(url_for('instructor_plan', stid=stid, m=day.strftime('%Y-%m'), msg='Added to the calendar.'))
 
 
@@ -869,6 +875,7 @@ def instructor_delete_event(eid):
     e = db.q('SELECT * FROM events WHERE id=?', (eid,), one=True)
     if not e: abort(404)
     db.x('DELETE FROM events WHERE id=?', (eid,))
+    hwsync.sync_soon(app, e['student_id'])
     return redirect(url_for('instructor_plan', stid=e['student_id'], m=e['day'][:7], msg='Removed from the calendar.'))
 
 
@@ -891,20 +898,30 @@ def homework():
         s = need_student()
     skill = request.args.get('skill')
     if skill not in SKILLS: abort(404)
-    n = max(5, min(25, int(request.args.get('n') or hw_count(skill))))
-    mix = level_mix(s, SKILLS[skill]['section'], skill) if s else {0: .3, 1: .45, 2: .25}
+    seed_base = int(request.args.get('seed') or random.randrange(1, 10 ** 6))
+    hw = build_homework(s, skill, seed_base, request.args.get('n'))
+    return render_template('homework.html', s=me(), st=s, skill=SKILLS[skill], seed=seed_base, mins=30,
+                           key=inst and request.args.get('key') == '1', **hw)
+
+
+def build_homework(student, skill, seed, n=None):
+    """Questions for one homework sheet: 10-15 problems (about 30 minutes), difficulty matched to the student's level on
+    the skill, no repeats within the sheet, avoiding what the student saw recently. Same seed -> same sheet."""
+    n = max(5, min(25, int(n or hw_count(skill))))
+    mix = level_mix(student, SKILLS[skill]['section'], skill) if student else {0: .3, 1: .45, 2: .25}
     c = pool.apportion(n, mix)
     ds = [0] * c[0] + [1] * c[1] + [2] * c[2]
-    seed_base = int(request.args.get('seed') or random.randrange(1, 10 ** 6))
-    rng = random.Random(seed_base)
-    avoid = db.seen_uids(s['id']) if s else set()
+    rng = random.Random(seed)
+    avoid = db.seen_uids(student['id']) if student else set()
     hard, qs = set(), []
     for d in ds:
         qd = pool.make_safe(skill, d, rng.randrange(1, 10 ** 9), False, avoid, hard)
         hard.add(qd['uid']); qs.append(qd)
     qs.sort(key=lambda q: q['d'])
-    return render_template('homework.html', s=me(), st=s, skill=SKILLS[skill], qs=qs, n=n, seed=seed_base, mins=30,
-                           key=inst and request.args.get('key') == '1', level=mix)
+    return dict(qs=qs, n=n, level=mix)
+
+
+app.extensions['build_homework'] = build_homework  # hwsync renders sheets in the background with the same builder
 
 
 def browsing():
@@ -1040,10 +1057,18 @@ def instructor_student(stid):
         return redirect(url_for('parent_report', stid=stid))
     sessions = db.q('SELECT * FROM sessions WHERE student_id=? ORDER BY created DESC', (stid,))
     d = analytics.dashboard(stid)
-    return render_template('instructor/student.html', st=st, d=d, sessions=sessions, tests=PRIOR_TESTS, view='tutor',
+    return render_template('instructor/student.html', st=st, d=d, sessions=sessions, tests=PRIOR_TESTS, view='tutor', hw=hw_info(st),
                            ruler=analytics.svg_ruler(d['rw'], d['math'], d['total'], d['goal']),
                            tline=analytics.svg_timeline(d['timeline'], d['goal']), wvol=analytics.svg_week_volume(d['weekly']), wacc=analytics.svg_week_accuracy(d['weekly']),
                            msg=request.args.get('msg'), err=request.args.get('err'))
+
+
+def hw_info(st):
+    """What the instructor page shows about the student's Desktop homework folder."""
+    if not hwsync.root(): return None
+    d = hwsync.folder(st)
+    files = sorted(f for f in os.listdir(d) if f.endswith('.pdf')) if os.path.isdir(d) else []
+    return dict(folder=d, exists=os.path.isdir(d), files=files, status=hwsync.status(st['id']), enabled=hwsync.enabled())
 
 
 @app.route('/instructor/students/<int:stid>/edit', methods=['POST'])
@@ -1061,6 +1086,7 @@ def instructor_edit_student(stid):
     if pin:
         if not valid_pin(pin, 4): return redirect(url_for('instructor_student', stid=stid, err='A new PIN must be 4 digits.'))
         db.x('UPDATE students SET pin_hash=? WHERE id=?', (auth.hash_pin(pin), stid))
+    hwsync.sync_soon(app, stid)
     return redirect(url_for('instructor_student', stid=stid, msg='Saved.'))
 
 
@@ -1092,6 +1118,7 @@ def instructor_add_score(stid):
         return redirect(url_for('instructor_student', stid=stid, err='Those scores are not valid for that test.'))
     db.x('INSERT INTO prior_scores(student_id, test, rw, math, taken, created) VALUES (?,?,?,?,?,?)', (stid, test, rw, mt, taken.isoformat(), time.time()))
     db.x("UPDATE students SET onboard='prior' WHERE id=? AND onboard IN ('new', 'skipped')", (stid,))
+    hwsync.sync_soon(app, stid)
     return redirect(url_for('instructor_student', stid=stid, msg='Score added.'))
 
 
@@ -1154,6 +1181,22 @@ def save_report_note(stid):
     return redirect(url_for('parent_report', stid=stid, msg='Note saved.'))
 
 
+@app.route('/instructor/students/<int:stid>/homework-folder', methods=['POST'])
+def instructor_hw_folder(stid):
+    need_instructor()
+    st = _student_or_404(stid)
+    if request.form.get('act') == 'open':
+        d = hwsync.folder(st) if hwsync.root() else None
+        if d and os.path.isdir(d) and sys.platform == 'darwin':
+            subprocess.Popen(['open', d])
+        return redirect(url_for('instructor_student', stid=stid))
+    try:
+        res = hwsync.sync_student(app, stid)
+    except Exception as e:  # show the problem instead of a server error
+        res = dict(ok=False, message='Update failed: %s' % e)
+    return redirect(url_for('instructor_student', stid=stid, **{'msg' if res['ok'] else 'err': 'Homework folder: ' + res['message']}))
+
+
 # ------------------------------------------------------------------ instructor: settings
 @app.route('/instructor/settings', methods=['GET', 'POST'])
 def instructor_settings():
@@ -1177,6 +1220,7 @@ def instructor_settings():
 if __name__ == '__main__':
     host = os.environ.get('HOST', '0.0.0.0')
     PORT = pick_port()
+    hwsync.start_hourly(app)
     print('\n  Instructor (this Mac):  %s/instructor' % base_url('localhost'))
     for a in lan_addresses(): print('  Students on the Wi-Fi:  %s' % a)
     print('')

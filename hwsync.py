@@ -27,6 +27,11 @@ import threading
 import time
 import traceback
 
+try:
+    import fcntl  # macOS/Linux: one running copy of the app manages the folders
+except ImportError:  # Windows
+    fcntl = None
+
 import db
 import pdfout
 import planner
@@ -180,7 +185,7 @@ def status(student_id):
 
 def sync_soon(app, student_id=None):
     """Queue a background sync for one student (or everyone). Returns immediately."""
-    if not enabled(): return
+    if not enabled() or not _claim(): return
     with _lock:
         if student_id is None:
             _pending.update(r['id'] for r in db.q('SELECT id FROM students'))
@@ -210,12 +215,40 @@ def _drain(app):
         if again: _drain(app)
 
 
-def start_hourly(app):
-    """Sync everyone now and then every hour, so a new week's homework appears without anyone opening the app."""
-    if not enabled(): return
+_owner = None
+
+
+def _claim():
+    """Only one running copy of the app may manage the homework folders (two would write the same files). The claim is
+    an OS file lock, released automatically when that copy exits or crashes, so a restart never finds a stale lock."""
+    global _owner
+    if _owner is not None or fcntl is None: return True
+    fh = open(os.path.join(os.path.dirname(os.path.abspath(db.PATH)), '.hwsync.lock'), 'w')
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.close()
+        return False
+    _owner = fh
+    return True
+
+
+def start_hourly(app, check_every=300, period=3600):
+    """Sync everyone at startup (catching up on anything that changed while the app was off), then once an hour of
+    wall-clock time has passed or the date has changed. Checking every 5 minutes against the real clock means a Mac
+    waking from sleep catches up within minutes rather than waiting out an hour of awake time."""
+    if not enabled(): return False
+    if not _claim():
+        print('  Homework folders: another copy of the app is already updating them.')
+        return False
 
     def loop():
+        last, day = 0.0, None
         while True:
-            sync_soon(app)
-            time.sleep(3600)
+            now = time.time()
+            if now - last >= period or datetime.date.today() != day:
+                sync_soon(app)
+                last, day = now, datetime.date.today()
+            time.sleep(check_every)
     threading.Thread(target=loop, daemon=True).start()
+    return True

@@ -57,6 +57,12 @@ check('Removed' in r['message'], 'the status says what was removed')
 r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
 check(len(top(d)) == 1 and 'due Wed Oct 21' in top(d)[0], 'after the due date the next week\'s sheet appears: %s' % top(d))
 
+# a missing or half-written current sheet (app stopped mid-write, or deleted by hand) is simply made again
+cur = top(d)[0]
+os.remove(os.path.join(d, cur))
+r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
+check(top(d) == [cur], 'a deleted current sheet is recreated on the next update')
+
 # renaming the student carries the folder over
 db.x("UPDATE students SET name='Samuel Rivera' WHERE id=?", (sid,))
 r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
@@ -68,6 +74,17 @@ check(hwsync.safe('Ana-María O\'Neil / 2') == 'Ana-María_ONeil_2', 'names beco
 
 keep = os.environ.get('KEEP_HW')
 if keep: shutil.copytree(nd, keep, dirs_exist_ok=True)
+# a second copy of the app cannot claim the folders while the first holds the lock; the lock frees when it exits
+import subprocess
+check(hwsync._claim(), 'this process claims the homework folders')
+other = subprocess.run([sys.executable, '-c', 'import os,sys; sys.path.insert(0, %r); import hwsync; print(hwsync._claim())' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))],
+                       env=dict(os.environ), capture_output=True, text=True)
+check(other.stdout.strip() == 'False', 'a second running copy is refused (%s)' % (other.stdout.strip() or other.stderr.strip()[-200:]))
+hwsync._owner.close(); hwsync._owner = None
+other = subprocess.run([sys.executable, '-c', 'import os,sys; sys.path.insert(0, %r); import hwsync; print(hwsync._claim())' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))],
+                       env=dict(os.environ), capture_output=True, text=True)
+check(other.stdout.strip() == 'True', 'after the first copy lets go, a restart claims them again')
+
 shutil.rmtree(TMP, ignore_errors=True)
 print('\n%s' % ('ALL HOMEWORK FOLDER CHECKS PASSED' if not fails else '%d FAILED' % len(fails)))
 sys.exit(1 if fails else 0)

@@ -5,3 +5,4 @@ sat_mock.db
 .DS_Store
 node_modules/
 backups/
+.hwsync.lock

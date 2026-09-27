@@ -4,10 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Mock SAT{% endblock %}</title>
+<script>try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/katex/katex.min.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <script defer src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}"></script>
 <script defer src="{{ url_for('static', filename='vendor/katex/contrib/auto-render.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='theme.js') }}"></script>
+<script defer src="{{ url_for('static', filename='charts.js') }}"></script>
 {% block head %}{% endblock %}
 </head>
 <body class="{% block bodyclass %}{% endblock %}">
@@ -19,11 +22,13 @@
     <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="on"{% endif %}>Home</a>
     <a href="{{ url_for('practice') }}" {% if request.endpoint == 'practice' %}class="on"{% endif %}>Practice</a>
     <a href="{{ url_for('exam') }}" {% if request.endpoint == 'exam' %}class="on"{% endif %}>Mock exam</a>
+    <a href="{{ url_for('my_plan') }}" {% if request.endpoint == 'my_plan' %}class="on"{% endif %}>My plan</a>
     <a href="{{ url_for('dashboard_view') }}" {% if request.endpoint in ('dashboard_view', 'scores') %}class="on"{% endif %}>My progress</a>
     {% endif %}
     <a href="{{ url_for('skills_index') }}" {% if request.endpoint in ('skills_index', 'lecture', 'homework') %}class="on"{% endif %}>Skills and lectures</a>
     {% if inst %}<a href="{{ url_for('instructor_home') }}" class="instlink{% if request.endpoint and request.endpoint.startswith('instructor') %} on{% endif %}">Instructor</a>{% endif %}
   </nav>
+  <button type="button" class="themebtn">Theme: Auto</button>
   {% if s %}<span class="who">{{ s['name'] }}<a href="{{ url_for('logout') }}">Sign out</a></span>
   {% elif inst %}<span class="who">Instructor<a href="{{ url_for('instructor_logout') }}">Lock</a></span>{% endif %}
 </header>

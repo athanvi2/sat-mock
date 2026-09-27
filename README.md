@@ -28,6 +28,13 @@ In practice the student chooses the help level: **hint first** (a wrong first tr
 - **5th Sunday**: *Mock exam > Hour-long mock*.
 - **Instructor > student**: score range and timeline (with official scores marked), weekly practice, per-skill mastery, sessions, and a printable **parent summary**.
 
+## For families
+
+- **Guide for families**: `docs/Parent-Guide.pdf` (also at `/guide` in the app, with a live PDF download). It explains the test, the weekly rhythm, the help levels, the score estimate, how the plan is chosen, and privacy. Rebuild it after editing `templates/guide.html` with `python tools/build_guide_pdf.py`.
+- **Parent report**: Instructor > student > *Parent report*. Score range and change, practice in the last 30 days, strengths and focus areas, the next four weeks of the plan with the reason for each item, and your note. *Download PDF* uses the Chrome on this Mac.
+- **Plan and calendar**: every student has one (*My plan* for students; Instructor > student > *Plan and calendar*). It shows past sessions, today, and the plan, each planned item with a "why", and what changed since the last look. Add notes or "no session" days from the instructor view.
+- **Dark mode**: follows the device, or pick Light/Dark with the Theme button (remembered per device). Printouts and PDFs are always light.
+
 ## How the pieces map to the official Digital SAT
 
 | Official | Here |
@@ -58,5 +65,6 @@ All questions are original (not College Board items). Math has parametric genera
 
     python tests/smoke.py       # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock and student management
     python tests/score_check.py # the score estimate on simulated students
+    python tests/plan_check.py  # the calendar follows the rules the parent guide describes
     python tests/fuzz_math.py   # generators build valid, non-duplicate-choice questions
     python tests/fuzz_rw.py

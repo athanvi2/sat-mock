@@ -1,6 +1,6 @@
 """End-to-end check of the Flask app through its test client. Run:  python tests/smoke.py
 Uses /tmp/smoke.db, never the real student database."""
-import glob, os, sys, json, re, random, time
+import datetime, glob, os, sys, json, re, random, time
 os.environ['SAT_DB'] = '/tmp/smoke.db'
 for f in ['/tmp/smoke.db'] + glob.glob('/tmp/backups/sat_mock-*'):
     os.remove(f)
@@ -136,7 +136,7 @@ for acc, want in ((0.97, 'hard'), (0.05, 'easy')):
     assert [m['variant'] for m in mods if m['module_no'] == 2] == [want, want]
 
 r = ok(c.get('/dashboard'), 'dash'); html = r.data.decode()
-assert 'Where the score is likely' in html and 'Score over time' in html and 'Practice by week' in html and 'Up next' in html
+assert 'Where the score is likely' in html and 'Score over time' in html and 'Questions answered per week' in html and 'Right on the first try' in html and 'data-tip=' in html and 'Up next' in html
 
 # ------------------------------------------------------------------ lecture and homework: students never see keys
 r = ok(c.get('/lecture/circles'), 'lec'); assert b'Show answer' in r.data and b'Instructor view' not in r.data
@@ -179,6 +179,26 @@ for path in ['/instructor/students/%d' % me['id'], '/instructor/students/%d?view
     ok(ci.get(path), path)
 r = ci.get('/lecture/circles'); assert b'Instructor view' in r.data
 r = ok(ci.get('/homework?skill=circles&student=%d&key=1' % me['id']), 'hw key'); assert b'Answer key for the tutor' in r.data and b'Test Student' in r.data
+# calendar, parent report, guide
+r = ok(c.get('/plan'), 'my plan'); assert b'Coming up' in r.data and b'How this plan is built' in r.data and b'class="chip' in r.data
+assert b'Add to the calendar' not in r.data, 'students cannot edit the calendar'
+r = ok(ci.get('/instructor/students/%d/plan' % me['id']), 'tutor plan'); assert b'Add to the calendar' in r.data
+nxt = datetime.date.today() + datetime.timedelta(days=(6 - datetime.date.today().weekday()) % 7 or 7)
+ok(ci.post('/instructor/students/%d/events' % me['id'], data=dict(day=nxt.isoformat(), kind='skip', title='Holiday')), 'add event')
+ev = db.q('SELECT * FROM events WHERE student_id=?', (me['id'],), one=True); assert ev and ev['kind'] == 'skip'
+assert b'Holiday' in ci.get('/instructor/students/%d/plan?m=%s' % (me['id'], nxt.strftime('%Y-%m'))).data
+ok(ci.post('/instructor/events/%d/delete' % ev['id']), 'delete event'); assert not db.q('SELECT 1 FROM events WHERE id=?', (ev['id'],), one=True)
+assert A.app.test_client().post('/instructor/students/%d/events' % me['id'], data=dict(day=nxt.isoformat()), environ_overrides=REMOTE).status_code == 404
+ok(ci.post('/instructor/students/%d/report/note' % me['id'], data=dict(note='Great focus this month.')), 'note')
+r = ok(ci.get('/instructor/students/%d/report' % me['id']), 'report'); assert b'Great focus this month.' in r.data and b'The next four weeks' in r.data
+assert rx.get('/instructor/students/%d/report' % me['id'], environ_overrides=REMOTE).status_code == 404
+assert c.get('/instructor/students/%d/report' % me['id']).status_code in (302, 404), 'students cannot open parent reports'
+r = ok(A.app.test_client().get('/guide'), 'guide'); assert b'How SAT prep works here' in r.data and b'It updates itself.' in r.data
+if __import__('pdfout').available():
+    r = ci.get('/instructor/students/%d/report?format=pdf' % me['id']); assert r.status_code == 200 and r.data[:4] == b'%PDF', r.status_code
+    r = A.app.test_client().get('/guide.pdf'); assert r.status_code == 200 and r.data[:4] == b'%PDF'
+    print('pdf export ok')
+assert b'class="themebtn' in c.get('/').data and b'theme.js' in c.get('/').data
 ok(ci.post('/instructor/students/%d/edit' % added['id'], data=dict(name='Added By Tutor', goal='1400', grade='10', pin='1357')), 'edit')
 assert auth.check_pin(db.q('SELECT pin_hash FROM students WHERE id=?', (added['id'],), one=True)['pin_hash'], '1357')
 ok(ci.post('/instructor/students/%d/scores' % added['id'], data=dict(test='SAT', taken='2026-05-02', rw='610', math='590')), 'score')

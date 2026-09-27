@@ -2,7 +2,11 @@
    expressions without x are evaluated. Drag to pan, scroll to zoom. Key points (intersections and intercepts) are listed. */
 (function () {
   'use strict';
-  var COLORS = ['#c74440', '#2d70b3', '#388c46', '#6042a6', '#000000'];
+  // curve colors: the validated categorical palette, with its own steps for a dark background
+  var COLORS = {light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'], dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']};
+  function dark() { return !!(window.Theme && Theme.isDark()); }
+  function curve(i) { var c = COLORS[dark() ? 'dark' : 'light']; return c[i % c.length]; }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
   /* ---- parser: numbers, x, pi, e, + - * / ^, functions, implicit multiplication */
   var FUNCS = {sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan, sqrt: Math.sqrt, abs: Math.abs,
@@ -71,9 +75,9 @@
 
     function addRow(val) {
       var i = rows.length, div = document.createElement('div'); div.className = 'row';
-      div.innerHTML = '<i style="background:' + COLORS[i % COLORS.length] + '"></i><input type="text" spellcheck="false" placeholder="' + (i === 0 ? 'y = 2x + 1   or   3(4+5)' : '') + '" aria-label="Expression ' + (i + 1) + '"><span class="res"></span>';
+      div.innerHTML = '<i style="background:' + curve(i) + '"></i><input type="text" spellcheck="false" placeholder="' + (i === 0 ? 'y = 2x + 1   or   3(4+5)' : '') + '" aria-label="Expression ' + (i + 1) + '"><span class="res"></span>';
       rowsEl.appendChild(div);
-      var inp = div.querySelector('input'), res = div.querySelector('.res'), r = {inp: inp, res: res, f: null, color: COLORS[i % COLORS.length]};
+      var inp = div.querySelector('input'), res = div.querySelector('.res'), r = {inp: inp, res: res, f: null, idx: i, dot: div.querySelector('i')};
       inp.value = val || '';
       inp.addEventListener('input', function () { parseRow(r); draw(); });
       rows.push(r);
@@ -114,11 +118,12 @@
       ctx.clearRect(0, 0, W, H);
       var step = niceStep(view.x1 - view.x0), stepy = niceStep(view.y1 - view.y0);
       ctx.font = '11px sans-serif'; ctx.lineWidth = 1;
-      for (var gx = Math.ceil(view.x0 / step) * step; gx <= view.x1; gx += step) { ctx.strokeStyle = Math.abs(gx) < 1e-9 ? '#18212E' : '#e2e6ea'; ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); ctx.fillStyle = '#56616F'; if (Math.abs(gx) > 1e-9) ctx.fillText(fmtn(gx), sx(gx) + 2, Math.min(H - 3, Math.max(11, sy(0) + 12))); }
-      for (var gy = Math.ceil(view.y0 / stepy) * stepy; gy <= view.y1; gy += stepy) { ctx.strokeStyle = Math.abs(gy) < 1e-9 ? '#18212E' : '#e2e6ea'; ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); ctx.fillStyle = '#56616F'; if (Math.abs(gy) > 1e-9) ctx.fillText(fmtn(gy), Math.min(W - 30, Math.max(2, sx(0) + 4)), sy(gy) - 2); }
+      var AX = css('--ink') || '#18212E', GR = css('--grid') || '#e2e6ea', TX = css('--graphite') || '#56616F';
+      for (var gx = Math.ceil(view.x0 / step) * step; gx <= view.x1; gx += step) { ctx.strokeStyle = Math.abs(gx) < 1e-9 ? AX : GR; ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); ctx.fillStyle = TX; if (Math.abs(gx) > 1e-9) ctx.fillText(fmtn(gx), sx(gx) + 2, Math.min(H - 3, Math.max(11, sy(0) + 12))); }
+      for (var gy = Math.ceil(view.y0 / stepy) * stepy; gy <= view.y1; gy += stepy) { ctx.strokeStyle = Math.abs(gy) < 1e-9 ? AX : GR; ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); ctx.fillStyle = TX; if (Math.abs(gy) > 1e-9) ctx.fillText(fmtn(gy), Math.min(W - 30, Math.max(2, sx(0) + 4)), sy(gy) - 2); }
       rows.forEach(function (r) {
         if (!r.f) return;
-        ctx.strokeStyle = r.color; ctx.lineWidth = 2.2; ctx.beginPath();
+        ctx.strokeStyle = curve(r.idx); ctx.lineWidth = 2.2; ctx.beginPath();
         var started = false, prevY = null;
         for (var px = 0; px <= W; px += 1) {
           var y = r.f(ix(px));
@@ -129,11 +134,12 @@
         ctx.stroke();
       });
       keyPoints();
-      key.forEach(function (k) { ctx.fillStyle = '#18212E'; ctx.beginPath(); ctx.arc(sx(k.x), sy(k.y), 4, 0, 6.3); ctx.fill(); });
+      key.forEach(function (k) { ctx.fillStyle = AX; ctx.beginPath(); ctx.arc(sx(k.x), sy(k.y), 4, 0, 6.3); ctx.fill(); });
       var inter = key.filter(function (k) { return k.tag === 'intersection'; }).slice(0, 4).map(function (k) { return '(' + fmtn(k.x) + ', ' + fmtn(k.y) + ')'; });
       var xs = key.filter(function (k) { return k.tag === 'x-int'; }).slice(0, 4).map(function (k) { return fmtn(k.x); });
       pts.textContent = (inter.length ? 'Intersections: ' + inter.join('  ') + '   ' : '') + (xs.length ? 'x-intercepts: ' + xs.join(', ') : '');
     }
+    document.addEventListener('themechange', function () { rows.forEach(function (r) { r.dot.style.background = curve(r.idx); }); draw(); });
     // pan / zoom
     var drag = null;
     cv.addEventListener('pointerdown', function (e) { drag = {x: e.clientX, y: e.clientY, v: {x0: view.x0, x1: view.x1, y0: view.y0, y1: view.y1}}; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });

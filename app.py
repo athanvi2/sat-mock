@@ -17,6 +17,8 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, ses
 import analytics
 import auth
 import db
+import pdfout
+import planner
 import scoring as S
 from bank import pool
 from bank.skills import DOMAINS, REFERENCE_HTML, SECTION_NAME, SKILLS
@@ -152,21 +154,21 @@ def svg_scatter(f):
     pw, ph = W - L - Rr, H - B - T
     sx = lambda x: L + (x - f['xmin']) / float(f['xmax'] - f['xmin']) * pw
     sy = lambda y: T + ph - (y - f['ymin']) / float(f['ymax'] - f['ymin']) * ph
-    o = ['<svg viewBox="0 0 %d %d" width="100%%" style="max-width:420px;font-family:sans-serif">' % (W, H)]
+    o = ['<svg class="fig" viewBox="0 0 %d %d" width="100%%" style="max-width:420px" role="img" aria-label="Scatterplot with line of best fit">' % (W, H)]
     x = f['xmin']
     while x <= f['xmax']:
-        o.append('<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="#DDE2E8"/><text x="%.1f" y="%d" font-size="10" text-anchor="middle">%s</text>' % (sx(x), sx(x), T, T + ph, sx(x), H - B + 14, x))
+        o.append('<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" class="fig-grid"/><text x="%.1f" y="%d" font-size="10" text-anchor="middle">%s</text>' % (sx(x), sx(x), T, T + ph, sx(x), H - B + 14, x))
         x += f['xstep']
     y = f['ymin']
     while y <= f['ymax']:
-        o.append('<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" stroke="#DDE2E8"/><text x="%d" y="%.1f" font-size="10" text-anchor="end">%s</text>' % (L, L + pw, sy(y), sy(y), L - 6, sy(y) + 3, y))
+        o.append('<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="fig-grid"/><text x="%d" y="%.1f" font-size="10" text-anchor="end">%s</text>' % (L, L + pw, sy(y), sy(y), L - 6, sy(y) + 3, y))
         y += f['ystep']
-    o.append('<rect x="%d" y="%d" width="%d" height="%d" fill="none" stroke="#18212E" stroke-width="1.5"/>' % (L, T, pw, ph))
+    o.append('<rect x="%d" y="%d" width="%d" height="%d" class="fig-frame"/>' % (L, T, pw, ph))
     if f.get('line'):
         (a, b), (c, d) = f['line']
-        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#1F4FA3" stroke-width="2"/>' % (sx(a), sy(b), sx(c), sy(d)))
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="fig-line"/>' % (sx(a), sy(b), sx(c), sy(d)))
     for px, py in f['points']:
-        o.append('<circle cx="%.1f" cy="%.1f" r="3.6" fill="#18212E"/>' % (sx(px), sy(py)))
+        o.append('<circle cx="%.1f" cy="%.1f" r="3.6" class="fig-dot"/>' % (sx(px), sy(py)))
     o.append('<text x="%d" y="%d" font-size="11" text-anchor="middle">%s</text>' % (L + pw // 2, H - 4, f.get('xlabel', 'x')))
     o.append('<text x="11" y="%d" font-size="11" text-anchor="middle" transform="rotate(-90 11 %d)">%s</text></svg>' % (T + ph // 2, T + ph // 2, f.get('ylabel', 'y')))
     return ''.join(o)
@@ -183,6 +185,19 @@ def pct(v): return '%d%%' % round(v * 100)
 
 @app.template_filter('dt')
 def dt(ts): return datetime.datetime.fromtimestamp(ts).strftime('%a %b %d, %I:%M %p').replace(' 0', ' ')
+
+
+@app.template_filter('ds')
+def ds(d, fmt):
+    """strftime with %-d (day without a leading zero) that also works on Windows."""
+    return d.strftime(fmt.replace('%-d', str(d.day)))
+
+
+@app.template_filter('signed')
+def signed(n):
+    """+30 / \u221240 / 0 with a real minus sign."""
+    n = int(n)
+    return ('+%d' % n) if n > 0 else ('\u2212%d' % -n) if n < 0 else '0'
 
 
 @app.template_filter('ago')
@@ -771,12 +786,70 @@ def review(sid):
 def dashboard_page(student, view):
     d = analytics.dashboard(student['id'])
     return render_template('dashboard.html', s=me(), d=d, view=view, ruler=analytics.svg_ruler(d['rw'], d['math'], d['total'], d['goal']),
-                           tline=analytics.svg_timeline(d['timeline'], d['goal']), wchart=analytics.svg_weekly(d['weekly']))
+                           tline=analytics.svg_timeline(d['timeline'], d['goal']), wvol=analytics.svg_week_volume(d['weekly']), wacc=analytics.svg_week_accuracy(d['weekly']))
 
 
 @app.route('/dashboard')
 def dashboard_view():
     return dashboard_page(need_student(), 'student')
+
+
+# ------------------------------------------------------------------ calendar
+def calendar_page(student, view):
+    today = datetime.date.today()
+    try:
+        y, m = [int(v) for v in request.args.get('m', '').split('-')]
+        datetime.date(y, m, 1)
+    except ValueError:
+        y, m = today.year, today.month
+    pl = planner.plan(student['id'], today)
+    first = datetime.date(y, m, 1)
+    shown = [first]
+    if not request.args.get('m') and today.day > 20:  # late in the month the plan lives mostly in the next one: show both
+        shown.append((first + datetime.timedelta(days=32)).replace(day=1))
+    months = [dict(month=mo, weeks=planner.month_grid(mo.year, mo.month, pl['items'], today)) for mo in shown]
+    prev_m = (first - datetime.timedelta(days=1)).replace(day=1)
+    next_m = (shown[-1] + datetime.timedelta(days=32)).replace(day=1)
+    upcoming = [i for i in pl['items'] if i['day'] >= today and i['status'] in ('planned', 'event')][:14]
+    recent = [i for i in pl['items'] if i['day'] < today and i['status'] in ('done', 'open', 'missed')][-6:]
+    return render_template('calendar.html', s=me(), st=student, view=view, pl=pl, months=months, prev_m=prev_m, next_m=next_m, today=today, upcoming=upcoming, recent=recent, rules=planner.RULES,
+                           msg=request.args.get('msg'), err=request.args.get('err'))
+
+
+@app.route('/plan')
+def my_plan():
+    return calendar_page(need_student(), 'student')
+
+
+@app.route('/instructor/students/<int:stid>/plan')
+def instructor_plan(stid):
+    need_instructor()
+    return calendar_page(_student_or_404(stid), 'tutor')
+
+
+@app.route('/instructor/students/<int:stid>/events', methods=['POST'])
+def instructor_add_event(stid):
+    need_instructor()
+    _student_or_404(stid)
+    f = request.form
+    try:
+        day = datetime.datetime.strptime(f.get('day', ''), '%Y-%m-%d').date()
+    except ValueError:
+        return redirect(url_for('instructor_plan', stid=stid, err='Pick a date.'))
+    kind = f.get('kind') if f.get('kind') in ('custom', 'skip') else 'custom'
+    title = ' '.join(f.get('title', '').split())[:80] or ('No session' if kind == 'skip' else 'Note')
+    db.x('INSERT INTO events(student_id, day, kind, title, note, created) VALUES (?,?,?,?,?,?)',
+         (stid, day.isoformat(), kind, title, f.get('note', '').strip()[:400], time.time()))
+    return redirect(url_for('instructor_plan', stid=stid, m=day.strftime('%Y-%m'), msg='Added to the calendar.'))
+
+
+@app.route('/instructor/events/<int:eid>/delete', methods=['POST'])
+def instructor_delete_event(eid):
+    need_instructor()
+    e = db.q('SELECT * FROM events WHERE id=?', (eid,), one=True)
+    if not e: abort(404)
+    db.x('DELETE FROM events WHERE id=?', (eid,))
+    return redirect(url_for('instructor_plan', stid=e['student_id'], m=e['day'][:7], msg='Removed from the calendar.'))
 
 
 # ------------------------------------------------------------------ homework and lecture sheets
@@ -943,14 +1016,13 @@ def _student_or_404(stid):
 def instructor_student(stid):
     need_instructor()
     st = _student_or_404(stid)
-    view = request.args.get('view', 'tutor')
-    if view == 'parent':
-        return dashboard_page(st, 'parent')
+    if request.args.get('view') == 'parent':
+        return redirect(url_for('parent_report', stid=stid))
     sessions = db.q('SELECT * FROM sessions WHERE student_id=? ORDER BY created DESC', (stid,))
     d = analytics.dashboard(stid)
     return render_template('instructor/student.html', st=st, d=d, sessions=sessions, tests=PRIOR_TESTS, view='tutor',
                            ruler=analytics.svg_ruler(d['rw'], d['math'], d['total'], d['goal']),
-                           tline=analytics.svg_timeline(d['timeline'], d['goal']), wchart=analytics.svg_weekly(d['weekly']),
+                           tline=analytics.svg_timeline(d['timeline'], d['goal']), wvol=analytics.svg_week_volume(d['weekly']), wacc=analytics.svg_week_accuracy(d['weekly']),
                            msg=request.args.get('msg'), err=request.args.get('err'))
 
 
@@ -1001,6 +1073,65 @@ def instructor_add_score(stid):
     db.x('INSERT INTO prior_scores(student_id, test, rw, math, taken, created) VALUES (?,?,?,?,?,?)', (stid, test, rw, mt, taken.isoformat(), time.time()))
     db.x("UPDATE students SET onboard='prior' WHERE id=? AND onboard IN ('new', 'skipped')", (stid,))
     return redirect(url_for('instructor_student', stid=stid, msg='Score added.'))
+
+
+# ------------------------------------------------------------------ parent guide (public: it describes the program, not a student)
+@app.route('/guide')
+def guide():
+    return render_template('guide.html', pdf=False, rules=planner.RULES, can_pdf=pdfout.available())
+
+
+@app.route('/guide.pdf')
+def guide_pdf():
+    try:
+        data = pdfout.html_to_pdf(render_template('guide.html', pdf=True, rules=planner.RULES, can_pdf=False))
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        return redirect(url_for('guide'))
+    return app.response_class(data, mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename="SAT prep - guide for families.pdf"'})
+
+
+# ------------------------------------------------------------------ parent report
+def report_data(st):
+    today = datetime.date.today()
+    d = analytics.dashboard(st['id'])
+    pl = planner.plan(st['id'], today)
+    rows = db.response_rows(st['id'])
+    since = time.time() - 30 * 86400
+    recent = [r for r in rows if r['ts'] >= since and not r['omitted']]
+    month = dict(sessions=db.q('SELECT COUNT(*) c FROM sessions WHERE student_id=? AND finished>=?', (st['id'], since), one=True)['c'],
+                 questions=len(recent), minutes=int(round(sum(r['time_ms'] or 0 for r in recent) / 60000.0)),
+                 acc=(sum(1 for r in recent if r['correct']) / float(len(recent))) if recent else None)
+    # change is measured from the first estimate made in this app, not from an older official score on a different test
+    est = [t for t in d['timeline'] if not t['reported']]
+    start = est[0] if est else None
+    change = (d['total']['mid'] - start['mid']) if (start and d['total']['has_data'] and len(est) >= 2) else None
+    upcoming = [i for i in pl['items'] if today <= i['day'] <= today + datetime.timedelta(days=28) and i['status'] in ('planned', 'event')]
+    return dict(d=d, pl=pl, month=month, start=start, change=change, upcoming=upcoming, today=today,
+                ruler=analytics.svg_ruler(d['rw'], d['math'], d['total'], d['goal']), tline=analytics.svg_timeline(d['timeline'], d['goal']))
+
+
+@app.route('/instructor/students/<int:stid>/report')
+def parent_report(stid):
+    need_instructor()
+    st = _student_or_404(stid)
+    ctx = report_data(st)
+    pdf = request.args.get('format') == 'pdf'
+    html = render_template('report.html', st=st, pdf=pdf, rules=planner.RULES, can_pdf=pdfout.available(), msg=request.args.get('msg'), **ctx)
+    if not pdf: return html
+    try:
+        data = pdfout.html_to_pdf(html)
+    except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+        return redirect(url_for('parent_report', stid=stid, msg='Could not make the PDF here (%s). Use Print, then Save as PDF.' % e))
+    fname = 'Progress report - %s - %s.pdf' % (st['name'], ctx['today'].isoformat())
+    return app.response_class(data, mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename="%s"' % fname.replace('"', '')})
+
+
+@app.route('/instructor/students/<int:stid>/report/note', methods=['POST'])
+def save_report_note(stid):
+    need_instructor()
+    _student_or_404(stid)
+    db.x('UPDATE students SET report_note=? WHERE id=?', (request.form.get('note', '').strip()[:2000], stid))
+    return redirect(url_for('parent_report', stid=stid, msg='Note saved.'))
 
 
 # ------------------------------------------------------------------ instructor: settings

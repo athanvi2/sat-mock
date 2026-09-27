@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}{% if view == 'student' %}My plan{% else %}{{ st['name'] }}: plan{% endif %}{% endblock %}
+{% macro chip(it, short=False) %}<a class="chip {{ it['family'] }} {{ it['status'] }}" href="#it-{{ it['day'].isoformat() }}-{{ it['kind'] }}" title="{{ it['label'] }}: {{ it['title']|striptags }}">
+  <span class="chip-k">{% if it['status'] == 'done' %}&#10003; {% elif it['status'] == 'missed' %}&#8211; {% endif %}{{ it['label'] }}</span>{% if not short %}<span class="chip-t">{{ it['title']|safe }}</span>{% endif %}</a>{% endmacro %}
+{% block content %}
+{% if view == 'tutor' %}<p class="noprint"><a href="{{ url_for('instructor_student', stid=st['id']) }}">&larr; {{ st['name'] }}</a></p>{% endif %}
+<div class="toolbar" style="align-items:baseline">
+  <h1 style="margin:0">{% if view == 'student' %}My plan{% else %}{{ st['name'] }}&rsquo;s plan{% endif %}</h1>
+  <span class="muted">{% if pl['test_day'] %}SAT on {{ pl['test_day']|ds('%B %-d, %Y') }} ({{ (pl['test_day'] - today).days }} days){% else %}No SAT date set yet{% if view == 'tutor' %}, add one on the student page{% endif %}{% endif %}</span>
+</div>
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+
+{% if pl['changes'] and pl['changes']['items'] %}
+<section class="sheet callout" style="margin-top:1rem">
+  <h2>What changed since {{ pl['changes']['since']|ds('%b %-d') }}</h2>
+  <ul class="plain" style="padding-left:1.1rem">{% for c in pl['changes']['items'] %}
+    <li><b>{{ c['day']|ds('%a %b %-d') }}:</b> {% if c['after'] %}{{ c['before'] }} &rarr; <b>{{ c['after'] }}</b>. <span class="muted">{{ c['why']|safe }}</span>{% else %}{{ c['before'] }} removed. <span class="muted">{{ c['why'] }}</span>{% endif %}</li>
+  {% endfor %}</ul>
+</section>
+{% endif %}
+
+{% for mo in months %}
+<section class="sheet cal" style="margin-top:1rem">
+  <div class="cal-head">
+    {% if loop.first %}<a class="btn ghost" href="?m={{ prev_m.strftime('%Y-%m') }}" aria-label="Previous month">&larr;</a>{% endif %}
+    <h2>{{ mo['month'].strftime('%B %Y') }}</h2>
+    {% if loop.last %}<a class="btn ghost" href="?m={{ next_m.strftime('%Y-%m') }}" aria-label="Next month">&rarr;</a>{% endif %}
+    {% if loop.first and (mo['month'].month != today.month or mo['month'].year != today.year) %}<a class="btn ghost" href="?">Today</a>{% endif %}
+  </div>
+  {% if loop.first %}<div class="legend-row">
+    <span class="key"><span class="sw fam learn"></span>Lessons and practice</span>
+    <span class="key"><span class="sw fam reinforce"></span>Homework and review</span>
+    <span class="key"><span class="sw fam measure"></span>Tests and scores</span>
+    <span class="key"><span class="sw fam neutral"></span>Tutor notes</span>
+    <span class="key">&#10003; done</span>
+  </div>{% endif %}
+  <div class="cal-grid" role="grid" aria-label="{{ mo['month'].strftime('%B %Y') }}">
+    {% for dn in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat') %}<div class="cal-dn" role="columnheader">{{ dn }}</div>{% endfor %}
+    {% for wk in mo['weeks'] %}{% for c in wk %}
+    <div class="cal-day{% if not c['in_month'] %} out{% endif %}{% if c['is_past'] %} past{% endif %}{% if c['is_today'] and c['in_month'] %} today{% endif %}" role="gridcell"
+         aria-label="{{ c['day']|ds('%A %B %-d') }}{% if c['is_today'] %}, today{% endif %}{% if c['items'] %}, {{ c['items']|length }} item{{ '' if c['items']|length == 1 else 's' }}{% endif %}">
+      <div class="cal-num">{{ c['day'].day }}{% if c['is_today'] and c['in_month'] %}<span class="cal-today">Today</span>{% endif %}</div>
+      {% if c['in_month'] %}{% for it in c['items'][:3] %}{{ chip(it) }}{% endfor %}
+      {% if c['items']|length > 3 %}<span class="small muted">+{{ c['items']|length - 3 }} more</span>{% endif %}{% endif %}
+    </div>
+    {% endfor %}{% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<div class="cols">
+  <section class="sheet">
+    <h2>Coming up</h2>
+    {% if upcoming %}
+    <ol class="agenda">{% for it in upcoming %}
+      <li id="it-{{ it['day'].isoformat() }}-{{ it['kind'] }}">
+        <div class="ag-day">{{ it['day'].strftime('%a') }}<b>{{ it['day']|ds('%b %-d') }}</b></div>
+        <div>{{ chip(it, True) }} <b>{{ it['title']|safe }}</b>
+          {% if it['why'] %}<p class="ag-why"><span class="muted">Why:</span> {{ it['why']|safe }}</p>{% endif %}
+          {% if view == 'student' and it['skill'] and it['kind'] in ('lesson', 'homework', 'refresher') %}<p class="small"><a href="{{ url_for('practice') }}?skill={{ it['skill'] }}">Practice now</a> &middot; <a href="{{ url_for('lecture', skill=it['skill']) }}">Lecture sheet</a></p>{% endif %}
+          {% if view == 'tutor' and it['skill'] %}<p class="small"><a href="{{ url_for('lecture', skill=it['skill']) }}">Lecture sheet</a> &middot; <a href="{{ url_for('homework', skill=it['skill'], student=st['id']) }}">Homework</a></p>{% endif %}
+          {% if view == 'tutor' and it.get('event_id') %}<form method="post" action="{{ url_for('instructor_delete_event', eid=it['event_id']) }}"><button class="linkbtn small">Remove</button></form>{% endif %}
+        </div>
+      </li>{% endfor %}
+    </ol>
+    {% else %}<p class="muted">Nothing planned yet.</p>{% endif %}
+  </section>
+  <section class="sheet">
+    <h2>Recently</h2>
+    {% if recent %}
+    <ol class="agenda">{% for it in recent|reverse %}
+      <li id="it-{{ it['day'].isoformat() }}-{{ it['kind'] }}">
+        <div class="ag-day">{{ it['day'].strftime('%a') }}<b>{{ it['day']|ds('%b %-d') }}</b></div>
+        <div>{{ chip(it, True) }} <b>{{ it['title']|safe }}</b>
+          <p class="ag-why">{{ it['why']|safe }}{% if it.get('session_id') and it['status'] == 'done' %} <a href="{{ url_for('results', sid=it['session_id']) }}">Results</a>{% endif %}</p></div>
+      </li>{% endfor %}
+    </ol>
+    {% else %}<p class="muted">Nothing yet. Finished sessions show up here.</p>{% endif %}
+    {% if view == 'tutor' %}
+    <h3 style="margin-top:1.4rem">Add to the calendar</h3>
+    <form method="post" action="{{ url_for('instructor_add_event', stid=st['id']) }}">
+      <div class="cols" style="gap:.8rem">
+        <div><label class="f" for="ed">Date</label><input type="date" id="ed" name="day" required value="{{ today.isoformat() }}"></div>
+        <div><label class="f" for="ek">Type</label><select id="ek" name="kind"><option value="custom">Note or event</option><option value="skip">No session that day</option></select></div>
+      </div>
+      <label class="f" for="et">Title</label><input type="text" id="et" name="title" maxlength="80" placeholder="e.g. Thanksgiving, no session">
+      <label class="f" for="en">Note (shown to the student and in the parent report)</label><input type="text" id="en" name="note" maxlength="400" style="width:100%">
+      <p style="margin-top:.8rem"><button class="btn ghost">Add</button></p>
+      <p class="hint">A "No session" day moves that week&rsquo;s lesson to the next Sunday.</p>
+    </form>
+    {% endif %}
+  </section>
+</div>
+
+<section class="sheet">
+  <details {% if view != 'student' %}open{% endif %}>
+    <summary><h2 style="display:inline">How this plan is built</h2></summary>
+    <ol class="rules">{% for t, body in rules %}<li><b>{{ t }}</b> {{ body }}</li>{% endfor %}</ol>
+  </details>
+  {% if pl['priorities'] %}
+  <details style="margin-top:.8rem">
+    <summary><b>Current priority list</b> <span class="muted small">(the numbers behind the lesson order)</span></summary>
+    <div class="tablewrap"><table class="list" style="margin-top:.6rem">
+      <thead><tr><th>#</th><th>Skill</th><th>Section</th><th class="r">Share of section</th><th class="r">Medium questions right</th></tr></thead>
+      <tbody>{% for x in pl['priorities'][:12] %}<tr><td>{{ x['rank'] }}</td><td>{{ x['name'] }}{% if x['trend'] == 'slipping' %} <span class="pill miss">Slipping</span>{% endif %}</td><td>{{ SECTION_NAME[x['section']] }}</td>
+        <td class="r">{{ (x['share'] * 100)|round|int }}%</td><td class="r">{{ (x['p'] * 100)|round|int }}%{% if not x['known'] %} <span class="muted small">(est.)</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="small muted">"Est." means too few answers on that skill yet, so it is estimated from the overall section level.</p>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}

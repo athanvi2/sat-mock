@@ -22,6 +22,7 @@ python tests/fuzz_math.py        # every math generator, every difficulty, hundr
 python tests/fuzz_rw.py          # same for reading & writing
 python tests/smoke.py            # end-to-end: join, diagnostic, assist levels, adaptive routing, instructor lock + CRUD, every skill's pages
 python tests/score_check.py      # simulated students: 80% ranges cover ~80%, no bias, edge cases (drilling, skipping, priors, recency)
+python tests/plan_check.py       # the calendar follows every rule in planner.RULES (the text parents read)
 python tests/rw_quality.py       # RW answer choices give no length giveaway (see "Distractor rule")
 python tests/bank_report.py      # prints how many distinct questions each skill can produce at each difficulty
 ```
@@ -44,8 +45,12 @@ scoring.py        IRT-style (Rasch + guessing floor) score estimation. Documente
 db.py             SQLite. Tables: students, sessions, modules, items, responses, prior_scores, settings, creds. MIGRATIONS adds columns to older files on startup. No ORM, just q()/x() helpers.
 auth.py           Instructor PIN (pbkdf2) + lockout, per-install cookie secret, and a minimal WebAuthn (Touch ID, ES256 only) verifier: small CBOR reader + pure-Python P-256 ECDSA. No crypto dependency.
 analytics.py      Dashboard payload (estimates, timeline incl. reported scores, weekly activity, per-skill mastery, recommendations) + server-side SVG charts.
+planner.py        Per-student calendar: past sessions, tutor events, and a plan recomputed on every view with a "why" per item. RULES is the
+                  parent-facing wording of exactly what plan() does; change both together (tests/plan_check.py asserts the rules).
+pdfout.py         HTML -> PDF through a local headless Chrome (parent report, guide). No Python PDF dependency; CHROME_PATH overrides.
+tools/build_guide_pdf.py   Regenerates docs/Parent-Guide.pdf from templates/guide.html.
 app.py            Flask routes: student flow (join, /start diagnostic, practice, runner APIs), instructor (/instructor/*). Read module_score_ratio()/advance() for adaptive routing and api_check() for assist levels before touching them.
-templates/        Jinja. base.html is the shell (nav differs for student/instructor). runner.html + static/runner.js is the exam-taking UI, the most complex piece. _progress.html is the shared progress report (student, tutor, parent views). instructor/ holds the instructor pages.
+templates/        Jinja. base.html is the shell (nav differs for student/instructor). report.html and guide.html are standalone print-first documents. runner.html + static/runner.js is the exam-taking UI, the most complex piece. _progress.html is the shared progress report (student, tutor, parent views). instructor/ holds the instructor pages.
 static/app.css    Single stylesheet, hand-rolled design system (see the comment block at the top for the rationale, don't restyle without reading it).
 static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN can't load). Has its own expression parser, don't confuse with Desmos integration in runner.js.
 ```
@@ -75,6 +80,10 @@ Passage-based RW skills (`text_structure_purpose`, `central_ideas`, `coe_textual
 **Distractor rule.** `tests/rw_quality.py` fails if, in any skill, the correct choice is the longest or the shortest more than 40% of the time, or at either extreme less than 30%. Wrong answers must be as specific as the key (a misread detail, an overreach, true-but-off-goal), and rhetorical-synthesis distractors are full sentences built from the notes. Run it after adding RW items.
 
 Math generators are deep except a few spots in the 40-80 range (`right_tri_trig` easy/hard, `area_volume` hard, `percentages` hard, `circles` easy). Math uids fall back to a hash of the stem plus the sorted choices, so a reshuffled question counts as the same question.
+
+## Charts and themes
+
+Light and dark are both first-class. Every color in `static/app.css` is a token defined once for light, once for dark (OS setting or the Theme button, `static/theme.js`), and print always uses light. Never write a literal color in a template, SVG, or JS: add or reuse a token. Chart roles (`--c-s1..3`, `--div-pos/neg/mid`, `--c-goal`, `--band-op`) come from the dataviz skill's validated palette (colorblind-safe, contrast-checked against these surfaces). Charts follow its rules: one y-axis per chart (the old weekly chart with two axes was split in two), a legend for 2+ series, `data-tip` on marks for hover/keyboard tooltips (`static/charts.js`), and color never the only cue (calendar chips always show a label). Desmos gets `invertedColors` in dark; `static/calc.js` reads the tokens when drawing.
 
 ## Frontend notes
 

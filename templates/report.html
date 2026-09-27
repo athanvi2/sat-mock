@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Progress report: {{ st['name'] }}</title>
+{% if not pdf %}<script>try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>{% endif %}
+<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/static/app.css">
+{% if not pdf %}<script defer src="/static/theme.js"></script><script defer src="/static/charts.js"></script>{% endif %}
+<style>
+  .rpt { max-width: 860px; margin: 1.5rem auto 3rem; padding: 0 1rem; }
+  .rep-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; border-bottom: 3px solid var(--ink); padding-bottom: .6rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .rep-head h1 { margin: 0; font-size: 2rem; }
+  .rep-head .who { color: var(--graphite); }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1.2rem; }
+  .tile { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: .8rem .9rem; }
+  .tile .v { font: 600 1.55rem/1.2 var(--serif); color: var(--ink); }
+  .tile .l { font-size: .82rem; color: var(--graphite); margin-top: .2rem; }
+  .rpt .sheet { break-inside: avoid; }
+  .rpt h2 { font-size: 1.25rem; }
+  .note { border-left: 6px solid var(--hl); }
+  .rpt .agenda li { grid-template-columns: 4.2rem minmax(0, 1fr); }
+  .tips { margin: .4rem 0 0 1.2rem; padding: 0; } .tips li { margin-bottom: .35rem; }
+  .foot { font-size: .8rem; color: var(--graphite); margin-top: 1rem; }
+  @media (max-width: 700px) { .tiles { grid-template-columns: 1fr 1fr; } }
+  @media print {
+    @page { size: letter; margin: 14mm 13mm; }
+    body { background: #fff; font-size: 10.5pt; }
+    .rpt { margin: 0; max-width: none; padding: 0; }
+    .rpt .sheet { border: 1px solid var(--rule); padding: .8rem 1rem; margin-bottom: .7rem; }
+    .tile { padding: .55rem .7rem; } .tile .v { font-size: 1.25rem; }
+    .cols { grid-template-columns: 1fr 1fr; gap: .7rem; }
+    .rpt .agenda li { padding: .35rem 0; break-inside: avoid; }
+    .rpt .sheet.splittable { break-inside: auto; }
+  }
+</style>
+</head>
+<body>
+{% if not pdf %}
+<div class="noprint" style="background:var(--bar);color:var(--bar-ink);padding:.55rem 1.25rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">
+  <a href="{{ url_for('instructor_student', stid=st['id']) }}" style="color:var(--bar-ink)">&larr; {{ st['name'] }}</a>
+  <span style="flex:1"></span>
+  {% if can_pdf %}<a class="btn" href="?format=pdf">Download PDF</a>{% endif %}
+  <button class="btn ghost" style="color:var(--bar-ink);border-color:var(--bar-muted)" onclick="window.print()">Print</button>
+  <button type="button" class="themebtn">Theme: Auto</button>
+</div>
+{% endif %}
+<main class="rpt">
+  {% if msg and not pdf %}<p role="status" class="okline noprint">{{ msg }}</p>{% endif %}
+  <header class="rep-head">
+    <div><div class="who">Digital SAT progress report</div><h1>{{ st['name'] }}</h1></div>
+    <div class="who" style="text-align:right">{{ today|ds('%B %-d, %Y') }}{% if st['grade'] %}<br>Grade {{ st['grade'] }}{% endif %}<br>Goal: {{ d['goal'] }}</div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><div class="v">{% if d['total']['has_data'] %}{{ d['total']['lo'] }}&ndash;{{ d['total']['hi'] }}{% else %}&mdash;{% endif %}</div>
+      <div class="l">Likely SAT score now{% if d['total']['has_data'] %} (best guess {{ d['total']['mid'] }}){% endif %}</div></div>
+    <div class="tile"><div class="v">{% if change is not none %}{{ change|signed }}{% else %}&mdash;{% endif %}</div>
+      <div class="l">{% if change is not none %}Points since the first estimate ({{ start['date'] }}){% else %}Change appears after two sessions{% endif %}</div></div>
+    <div class="tile"><div class="v">{{ month['questions'] }}</div>
+      <div class="l">Questions in the last 30 days{% if month['minutes'] %}, {{ month['minutes'] }} minutes{% endif %}{% if month['acc'] is not none %}; {{ month['acc']|pct }} right first try{% endif %}</div></div>
+    <div class="tile"><div class="v">{% if pl['test_day'] %}{{ (pl['test_day'] - today).days }}{% else %}&mdash;{% endif %}</div>
+      <div class="l">{% if pl['test_day'] %}Days until the SAT ({{ pl['test_day']|ds('%b %-d') }}){% else %}SAT date not set yet{% endif %}</div></div>
+  </div>
+
+  {% if st['report_note'] %}<section class="sheet note"><h2>From the tutor</h2><p class="prose" style="max-width:none">{{ st['report_note'] }}</p></section>{% endif %}
+  {% if not pdf %}
+  <section class="sheet noprint">
+    <form method="post" action="{{ url_for('save_report_note', stid=st['id']) }}">
+      <label class="f" for="note" style="margin-top:0">Note for the family (appears at the top of the report)</label>
+      <textarea id="note" name="note" rows="3" style="width:100%;font:inherit;padding:.5rem;border:1.5px solid var(--rule);border-radius:5px;background:var(--field);color:var(--ink)">{{ st['report_note'] or '' }}</textarea>
+      <p style="margin-top:.5rem"><button class="btn ghost">Save note</button></p>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="sheet">
+    <h2>In short</h2>
+    <p class="prose" style="max-width:none">{{ d['summary'] }}</p>
+    {{ ruler|safe }}
+    <p class="small muted">The yellow stroke is the range the score is 80% likely to fall in; the dark tick is the best single guess; the blue triangle is the goal. This is an estimate from practice results, not an official score.</p>
+  </section>
+
+  {% if tline %}
+  <section class="sheet">
+    <h2>Score over time</h2>
+    <div class="legend-row">
+      <span class="key"><span class="sw line"></span>Estimate after each session</span>
+      <span class="key"><span class="sw band"></span>Likely range</span>
+      {% if d['priors'] %}<span class="key"><span class="sw rep"></span>Official or Bluebook score</span>{% endif %}
+      <span class="key"><span class="sw goal"></span>Goal</span>
+    </div>
+    {{ tline|safe }}
+  </section>
+  {% endif %}
+
+  <div class="cols">
+    <section class="sheet">
+      <h2>Going well</h2>
+      {% if d['strongest'] %}<ul class="plain" style="padding-left:1.1rem">{% for s in d['strongest'] %}<li><b>{{ s['name'] }}</b>: {{ s['acc']|pct }} right on the first try</li>{% endfor %}</ul>
+      {% else %}<p class="muted">Shows up once there are a few sessions of practice.</p>{% endif %}
+      {% if d['improving'] %}<p class="small"><b>Improving lately:</b> {% for s in d['improving'] %}{{ s['name'] }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+    </section>
+    <section class="sheet">
+      <h2>Where we are focusing</h2>
+      {% if d['weakest'] %}<ul class="plain" style="padding-left:1.1rem">{% for s in d['weakest'] %}<li><b>{{ s['name'] }}</b>: {{ s['acc']|pct }} right on the first try</li>{% endfor %}</ul>
+      {% else %}<p class="muted">Shows up once there are a few sessions of practice.</p>{% endif %}
+      {% if d['slipping'] %}<p class="small"><b>Needs a refresher:</b> {% for s in d['slipping'] %}{{ s['name'] }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+    </section>
+  </div>
+
+  <section class="sheet splittable">
+    <h2>The next four weeks</h2>
+    {% if upcoming %}
+    <ol class="agenda">{% for it in upcoming %}
+      <li><div class="ag-day">{{ it['day'].strftime('%a') }}<b>{{ it['day']|ds('%b %-d') }}</b></div>
+        <div><span class="chip {{ it['family'] }} planned" style="display:inline-block"><span class="chip-k" style="display:inline">{{ it['label'] }}</span></span> <b>{{ it['title']|safe }}</b>
+          {% if it['why'] %}<p class="ag-why"><span class="muted">Why:</span> {{ it['why']|safe }}</p>{% endif %}</div></li>
+    {% endfor %}</ol>
+    {% else %}<p class="muted">Nothing is scheduled in the next four weeks.</p>{% endif %}
+  </section>
+
+  <div class="cols">
+    <section class="sheet">
+      <h2>How the plan is chosen</h2>
+      <ol class="rules small">{% for t, body in rules[:5] %}<li><b>{{ t }}</b> {{ body }}</li>{% endfor %}</ol>
+      <p class="small muted">The plan is recalculated after every session, so it follows how things are actually going.</p>
+    </section>
+    <section class="sheet">
+      <h2>How you can help</h2>
+      <ul class="tips small">
+        <li>Ask to see the homework sheet on Wednesdays. About 30 focused minutes is the target.</li>
+        <li>Ask {{ st['name'].split(' ')[0] }} to explain one question they got wrong and why the right answer is right. Explaining it is what fixes it.</li>
+        <li>Protect sleep before practice tests and the real SAT; it matters more than last-minute cramming.</li>
+        {% if pl['test_day'] %}<li>In the last week before {{ pl['test_day']|ds('%b %-d') }}: no new material, just rest, light review, and a test-day checklist.</li>{% endif %}
+        <li>Official College Board Bluebook practice tests are free. A Bluebook score, shared with the tutor, makes this estimate sharper.</li>
+      </ul>
+    </section>
+  </div>
+
+  <p class="foot">Scores here are estimates from practice results using a transparent statistical model; the College Board does not publish its scoring method. The range narrows as more questions are answered, and official or Bluebook scores anchor it.</p>
+</main>
+</body>
+</html>

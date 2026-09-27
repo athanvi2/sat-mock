@@ -1,4 +1,4 @@
-{# Shared progress report. Needs: d (analytics.dashboard), ruler, tline, wchart, view ('student' | 'parent' | 'tutor'). #}
+{# Shared progress report. Needs: d (analytics.dashboard), ruler, tline, wvol, wacc, view ('student' | 'parent' | 'tutor'). #}
 {% macro trend(t) %}{% if t == 'improving' %}<span class="pill strong">Improving</span>{% elif t == 'slipping' %}<span class="pill miss">Slipping</span>{% elif t == 'steady' %}<span class="pill steady">Steady</span>{% else %}<span class="pill new">New</span>{% endif %}{% endmacro %}
 {% macro mastery(m) %}<span class="pill {{ {'mastered': 'strong', 'solid': 'strong', 'developing': 'steady', 'needs work': 'miss'}.get(m, 'new') }}">{{ m|capitalize }}</span>{% endmacro %}
 {% set who = 'You' if view == 'student' else d['student']['name'].split(' ')[0] %}
@@ -22,16 +22,28 @@
 {% if tline %}
 <section class="sheet">
   <h2>Score over time</h2>
+  <div class="legend-row" aria-hidden="true">
+    <span class="key"><span class="sw line"></span>Estimate after each session</span>
+    <span class="key"><span class="sw band"></span>Likely range (80%)</span>
+    {% if d['priors'] %}<span class="key"><span class="sw rep"></span>Official or Bluebook score</span>{% endif %}
+    <span class="key"><span class="sw goal"></span>Goal ({{ d['goal'] }})</span>
+  </div>
   {{ tline|safe }}
-  <p class="small muted">Dots: the estimate after each session, with the likely range shaded. Blue diamonds: official or Bluebook scores.</p>
+  <p class="small muted">Hover over or tab to any point for its details. The range narrows as more questions are answered.</p>
 </section>
 {% endif %}
 
-{% if wchart %}
-<section class="sheet">
-  <h2>Practice by week</h2>
-  {{ wchart|safe }}
-</section>
+{% if wvol %}
+<div class="cols">
+  <section class="sheet">
+    <h2>Questions answered per week</h2>
+    {{ wvol|safe }}
+  </section>
+  <section class="sheet">
+    <h2>Right on the first try</h2>
+    {% if wacc %}{{ wacc|safe }}{% else %}<p class="muted">Appears after the first answered questions.</p>{% endif %}
+  </section>
+</div>
 {% endif %}
 
 {% if view != 'parent' and d['recommend'] %}
@@ -69,7 +81,10 @@
 {% if view != 'parent' %}
 <section class="sheet">
   <h2>Every skill</h2>
-  <p class="small muted">Level: the chance of getting a medium question right (mastered, solid, developing, needs work). Bar: compared with {{ 'your' if view == 'student' else 'the student\'s' }} overall level in that section; right of center is stronger than usual.</p>
+  <p class="small muted">Level: the chance of getting a medium question right (mastered, solid, developing, needs work). Bar: compared with {{ 'your' if view == 'student' else 'the student\'s' }} overall level in that section.</p>
+  <div class="legend-row" aria-hidden="true"><span class="key"><span class="sw" style="background:var(--div-neg)"></span>Weaker than usual (bar extends left)</span>
+    <span class="key"><span class="sw" style="background:var(--div-pos)"></span>Stronger than usual (bar extends right)</span>
+    <span class="key"><span class="sw" style="background:var(--div-mid)"></span>Too few answers to say</span></div>
   {% for sec in ('rw', 'math') %}
     <h3 style="margin-top:1.2rem">{{ SECTION_NAME[sec] }}</h3>
     {% for s in d['skills'] if s['section'] == sec %}

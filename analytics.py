@@ -55,7 +55,7 @@ def timeline(student_id, rows=None, prior_rows=None):
     this_year = datetime.date.today().year
     for t in out:
         day = datetime.date.fromtimestamp(t['ts'])
-        t['date'] = day.strftime('%b %d') if day.year == this_year else day.strftime("%b '%y")
+        t['date'] = '%s %d' % (day.strftime('%b'), day.day) if day.year == this_year else day.strftime("%b '%y")
     if len(set(t['date'] for t in out)) < len(out):
         for i, t in enumerate(out):
             t['date'] = '%d. %s' % (i + 1, t['date'])
@@ -68,7 +68,8 @@ def weekly(rows, now, weeks=10):
     for k in range(weeks - 1, -1, -1):
         a, b = now - (k + 1) * 7 * 86400, now - k * 7 * 86400
         rr = [r for r in rows if a <= r['ts'] < b and not r['omitted']]
-        out.append(dict(start=datetime.date.fromtimestamp(a + 86400).strftime('%b %d'), n=len(rr),
+        wd = datetime.date.fromtimestamp(a + 86400)
+        out.append(dict(start='%s %d' % (wd.strftime('%b'), wd.day), n=len(rr),
                         acc=(sum(1 for r in rr if r['correct']) / float(len(rr))) if rr else None,
                         minutes=sum(r['time_ms'] or 0 for r in rr) / 60000.0))
     return out
@@ -208,6 +209,13 @@ def roster_row(student):
 
 
 # ------------------------------------------------------------------ SVG
+# Charts are drawn server-side as plain SVG (they print, and need no JS library). Colors come from CSS roles in app.css
+# (--c-s1, --hl, --c-goal ...), which have validated light and dark steps. Marks with data-tip get a hover/keyboard
+# tooltip from static/charts.js; hit targets are larger than the marks.
+def _esc(t):
+    return str(t).replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;')
+
+
 def svg_ruler(rw, mt, total, goal=None, w=640):
     """Score ranges drawn as highlighter strokes on a ruler. Two rulers: total (400-1600) and each section (200-800).
     A section (or the total) without enough evidence is drawn as an empty ruler with a note instead of a guess."""
@@ -221,61 +229,104 @@ def svg_ruler(rw, mt, total, goal=None, w=640):
             s += '<line x1="%d" x2="%d" y1="%d" y2="%d" class="tick"/><text x="%d" y="%d" class="tk">%d</text>' % (x(v), x(v), y - 5, y + 5, x(v), y + 20, v)
             v += step
         if est['has_data']:
-            s += '<rect x="%d" y="%d" width="%d" height="14" class="hl"/>' % (x(est['lo']), y - 7, max(4, x(est['hi']) - x(est['lo'])))
-            s += '<line x1="%d" x2="%d" y1="%d" y2="%d" class="mid"/>' % (x(est['mid']), x(est['mid']), y - 12, y + 12)
+            tip = '%s: likely %d to %d, best guess %d' % (label.replace('&amp;', 'and'), est['lo'], est['hi'], est['mid'])
+            s += '<g data-tip="%s" tabindex="0"><rect x="%d" y="%d" width="%d" height="26" class="hit"/>' % (_esc(tip), x(est['lo']) - 4, y - 13, max(12, x(est['hi']) - x(est['lo']) + 8))
+            s += '<rect x="%d" y="%d" width="%d" height="14" rx="2" class="hl"/>' % (x(est['lo']), y - 7, max(4, x(est['hi']) - x(est['lo'])))
+            s += '<line x1="%d" x2="%d" y1="%d" y2="%d" class="mid"/></g>' % (x(est['mid']), x(est['mid']), y - 12, y + 12)
         else:
             s += '<text x="%d" y="%d" class="tk">not enough evidence yet</text>' % (x((mn + mx) / 2.0), y - 10)
-        if goal_v: s += '<path d="M%d %d l-5 -9 h10 z" class="goal"/>' % (x(goal_v), y - 12)
+        if goal_v: s += '<g data-tip="Goal: %d" tabindex="0"><path d="M%d %d l-6 -10 h12 z" class="goal"/></g>' % (goal_v, x(goal_v), y - 12)
         return s
     body = row(28, 'Total', total, 400, 1600, goal)
-    body += row(88, 'Reading & Writing', rw, 200, 800)
+    body += row(88, 'Reading &amp; Writing', rw, 200, 800)
     body += row(148, 'Math', mt, 200, 800)
-    return '<svg viewBox="0 0 %d 180" class="ruler" role="img" aria-label="Estimated score ranges">%s</svg>' % (w, body)
+    return '<svg viewBox="0 0 %d 180" class="ruler" role="img" aria-label="Estimated score ranges: total %s">%s</svg>' % (
+        w, '%d to %d' % (total['lo'], total['hi']) if total['has_data'] else 'not enough evidence yet', body)
 
 
-def svg_timeline(tl, goal=None, w=640, h=210):
+def svg_timeline(tl, goal=None, w=640, h=220):
+    """Estimated total after each session (line + 80% band) with official/Bluebook scores as diamonds and the goal as a
+    dashed line. One y-axis (total score). Legend is drawn in HTML by the template."""
     est = [t for t in tl if not t['reported']]
     if len(tl) < 2 or not est:
         return ''
-    xs = lambda i: 46 + i * (w - 70) / float(len(tl) - 1)
+    L, R, T, B = 46, 34, 14, 34
+    xs = lambda i: L + i * (w - L - R) / float(len(tl) - 1)
     lo_v = min(min(t['lo'] for t in tl), goal or 9999) - 40
     hi_v = max(max(t['hi'] for t in tl), goal or 0) + 40
-    ys = lambda v: 16 + (hi_v - v) / float(hi_v - lo_v) * (h - 56)
-    idx = [(i, t) for i, t in enumerate(tl) if not t['reported']]
+    lo_v, hi_v = max(400, lo_v // 100 * 100), min(1600, -(-hi_v // 100) * 100)
+    ys = lambda v: T + (hi_v - v) / float(hi_v - lo_v) * (h - T - B)
     s = ''
+    for v in range(int(lo_v), int(hi_v) + 1, 100):
+        s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="grid"/><text x="0" y="%.1f" class="tkl">%d</text>' % (L, w - R, ys(v), ys(v), ys(v) + 4, v)
+    idx = [(i, t) for i, t in enumerate(tl) if not t['reported']]
     if len(idx) >= 2:
         band = ' '.join('%.1f,%.1f' % (xs(i), ys(t['hi'])) for i, t in idx) + ' ' + ' '.join('%.1f,%.1f' % (xs(i), ys(t['lo'])) for i, t in reversed(idx))
         s += '<polygon points="%s" class="band"/><polyline points="%s" class="tline"/>' % (band, ' '.join('%.1f,%.1f' % (xs(i), ys(t['mid'])) for i, t in idx))
+    if goal:
+        s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="goalline"/>' % (L, w - R, ys(goal), ys(goal))
     for i, t in enumerate(tl):
+        x, y = xs(i), ys(t['mid'])
         if t['reported']:
-            s += '<path d="M%.1f %.1f l6 6 l-6 6 l-6 -6 z" class="goal"><title>%s %s: %d (Reading and Writing %d, Math %d)</title></path>' % (
-                xs(i), ys(t['mid']) - 6, t['date'], t['kind'], t['mid'], t['rw'], t['math'])
+            tip = '%s, %s: %d (Reading and Writing %d, Math %d)' % (t['kind'], t['date'], t['mid'], t['rw'], t['math'])
+            s += '<g data-tip="%s" tabindex="0"><circle cx="%.1f" cy="%.1f" r="12" class="hit"/><path d="M%.1f %.1f l7 7 l-7 7 l-7 -7 z" class="rep mark"/></g>' % (_esc(tip), x, y, x, y - 7)
         else:
-            s += '<circle cx="%.1f" cy="%.1f" r="3.5" class="dot"><title>%s: %d (range %d-%d)</title></circle>' % (xs(i), ys(t['mid']), t['date'], t['mid'], t['lo'], t['hi'])
-        if len(tl) <= 10 or i % 2 == 0: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (xs(i), h - 8, t['date'])
-    if goal: s += '<line x1="40" x2="%d" y1="%.1f" y2="%.1f" class="goalline"/><text x="%d" y="%.1f" class="tkr">goal %d</text>' % (w - 10, ys(goal), ys(goal), w - 10, ys(goal) - 4, goal)
-    for v in range(int(lo_v // 100 * 100 + 100), int(hi_v), 100):
-        s += '<text x="0" y="%.1f" class="tkl">%d</text>' % (ys(v) + 3, v)
+            tip = '%s after %s: about %d (likely %d to %d)' % (t['date'], t['kind'], t['mid'], t['lo'], t['hi'])
+            s += '<g data-tip="%s" tabindex="0"><circle cx="%.1f" cy="%.1f" r="12" class="hit"/><circle cx="%.1f" cy="%.1f" r="4.5" class="dot mark"/></g>' % (_esc(tip), x, y, x, y)
+        if len(tl) <= 10 or i % 2 == 0: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (x, h - 10, t['date'])
     return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Estimated total score over time">%s</svg>' % (w, h, s)
 
 
-def svg_weekly(wk, w=640, h=150):
-    """Questions per week as bars, first-try accuracy as dots on the same weeks."""
+def _bar(x, y0, width, height, r=4):
+    """A bar with rounded data-end (top) and a square end on the baseline."""
+    if height <= 0: return ''
+    r = min(r, height, width / 2.0)
+    return ('M%.1f %.1f V%.1f Q%.1f %.1f %.1f %.1f H%.1f Q%.1f %.1f %.1f %.1f V%.1f Z' %
+            (x, y0, y0 - height + r, x, y0 - height, x + r, y0 - height, x + width - r, x + width, y0 - height, x + width, y0 - height + r, y0))
+
+
+def svg_week_volume(wk, w=320, h=170):
+    """Questions answered per week: one series, so no legend; the heading names it."""
     if not any(x['n'] for x in wk): return ''
-    top = max(10, max(x['n'] for x in wk))
-    bw = (w - 60) / float(len(wk))
-    ys = lambda v: 12 + (1 - v / float(top)) * (h - 46)
-    ya = lambda a: 12 + (1 - a) * (h - 46)
+    L, R, T, B = 30, 6, 10, 28
+    top = max(10, max(x['n'] for x in wk)); top = int(-(-top // 10) * 10)
+    bw = (w - L - R) / float(len(wk))
+    ys = lambda v: T + (1 - v / float(top)) * (h - T - B)
     s = ''
+    for v in (0, top // 2, top):
+        s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="%s"/><text x="0" y="%.1f" class="tkl">%d</text>' % (L, w - R, ys(v), ys(v), 'axis' if v == 0 else 'grid', ys(v) + 4, v)
     for i, x in enumerate(wk):
-        x0 = 44 + i * bw
-        if x['n']:
-            s += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" class="wbar"><title>Week of %s: %d questions, %d minutes</title></rect>' % (
-                x0 + bw * 0.18, ys(x['n']), bw * 0.64, ys(0) - ys(x['n']), x['start'], x['n'], x['minutes'])
-        if x['acc'] is not None:
-            s += '<circle cx="%.1f" cy="%.1f" r="3.5" class="wacc"><title>%d%% correct on first try</title></circle>' % (x0 + bw / 2, ya(x['acc']), round(x['acc'] * 100))
-        if i % 2 == len(wk) % 2 or len(wk) <= 6: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (x0 + bw / 2, h - 16, x['start'])
-    s += '<text x="0" y="%.1f" class="tkl">%d</text><text x="0" y="%.1f" class="tkl">0</text>' % (ys(top) + 4, top, ys(0))
-    s += '<text x="%d" y="%.1f" class="tkr">100%%</text><text x="%d" y="%.1f" class="tkr">0%%</text>' % (w, ya(1) + 4, w, ya(0))
-    s += '<text x="%d" y="%d" class="tk">bars: questions per week (left scale) &#183; dots: share right on the first try (right scale)</text>' % (w / 2, h - 2)
-    return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Weekly practice volume and accuracy">%s</svg>' % (w, h, s)
+        x0 = L + i * bw
+        tip = 'Week of %s: %d question%s, %d minutes' % (x['start'], x['n'], '' if x['n'] == 1 else 's', round(x['minutes']))
+        s += '<g data-tip="%s" tabindex="0"><rect x="%.1f" y="%d" width="%.1f" height="%.1f" class="hit"/>' % (_esc(tip), x0, T, bw, h - T - B)
+        if x['n']: s += '<path d="%s" class="wbar mark"/>' % _bar(x0 + 1, ys(0), bw - 2, ys(0) - ys(x['n']))
+        s += '</g>'
+        if i % 3 == (len(wk) - 1) % 3: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (x0 + bw / 2, h - 8, x['start'])
+    return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Questions answered per week">%s</svg>' % (w, h, s)
+
+
+def svg_week_accuracy(wk, w=320, h=170):
+    """Share right on the first try per week, 0-100% on its own axis (a separate chart, never a second axis)."""
+    pts = [(i, x) for i, x in enumerate(wk) if x['acc'] is not None]
+    if not pts: return ''
+    L, R, T, B = 36, 24, 10, 28
+    step = (w - L - R) / float(max(1, len(wk) - 1))
+    xs = lambda i: L + i * step
+    ys = lambda a: T + (1 - a) * (h - T - B)
+    s = ''
+    for a in (0, .5, 1):
+        s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="%s"/><text x="0" y="%.1f" class="tkl">%d%%</text>' % (L, w - R, ys(a), ys(a), 'axis' if a == 0 else 'grid', ys(a) + 4, a * 100)
+    runs, cur = [], []
+    for i, x in enumerate(wk):  # the line breaks across weeks with no practice rather than inventing a value
+        if x['acc'] is None:
+            if cur: runs.append(cur); cur = []
+        else: cur.append((i, x['acc']))
+    if cur: runs.append(cur)
+    for run in runs:
+        if len(run) > 1: s += '<polyline points="%s" class="aline"/>' % ' '.join('%.1f,%.1f' % (xs(i), ys(a)) for i, a in run)
+    for i, x in pts:
+        tip = 'Week of %s: %d%% right on the first try (%d questions)' % (x['start'], round(x['acc'] * 100), x['n'])
+        s += '<g data-tip="%s" tabindex="0"><circle cx="%.1f" cy="%.1f" r="12" class="hit"/><circle cx="%.1f" cy="%.1f" r="4.5" class="adot mark"/></g>' % (_esc(tip), xs(i), ys(x['acc']), xs(i), ys(x['acc']))
+    for i, x in enumerate(wk):
+        if i % 3 == (len(wk) - 1) % 3: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (xs(i), h - 8, x['start'])
+    return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Share of questions right on the first try, per week">%s</svg>' % (w, h, s)

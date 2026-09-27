@@ -17,18 +17,18 @@
     var W = 380, H = 270, L = 42, B = 34, T = 12, Rr = 14, pw = W - L - Rr, ph = H - B - T;
     var sx = function (x) { return L + (x - f.xmin) / (f.xmax - f.xmin) * pw; };
     var sy = function (y) { return T + ph - (y - f.ymin) / (f.ymax - f.ymin) * ph; };
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:420px;font-family:sans-serif" role="img" aria-label="Scatterplot with line of best fit">';
+    var s = '<svg class="fig" viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:420px" role="img" aria-label="Scatterplot with line of best fit">';
     for (var x = f.xmin; x <= f.xmax; x += f.xstep) {
-      s += '<line x1="' + sx(x) + '" x2="' + sx(x) + '" y1="' + T + '" y2="' + (T + ph) + '" stroke="#DDE2E8"/>';
+      s += '<line x1="' + sx(x) + '" x2="' + sx(x) + '" y1="' + T + '" y2="' + (T + ph) + '" class="fig-grid"/>';
       s += '<text x="' + sx(x) + '" y="' + (H - B + 14) + '" font-size="10" text-anchor="middle">' + x + '</text>';
     }
     for (var y = f.ymin; y <= f.ymax; y += f.ystep) {
-      s += '<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + sy(y) + '" y2="' + sy(y) + '" stroke="#DDE2E8"/>';
+      s += '<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + sy(y) + '" y2="' + sy(y) + '" class="fig-grid"/>';
       s += '<text x="' + (L - 6) + '" y="' + (sy(y) + 3) + '" font-size="10" text-anchor="end">' + y + '</text>';
     }
-    s += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="#18212E" stroke-width="1.5"/>';
-    if (f.line) s += '<line x1="' + sx(f.line[0][0]) + '" y1="' + sy(f.line[0][1]) + '" x2="' + sx(f.line[1][0]) + '" y2="' + sy(f.line[1][1]) + '" stroke="#1F4FA3" stroke-width="2"/>';
-    f.points.forEach(function (p) { s += '<circle cx="' + sx(p[0]) + '" cy="' + sy(p[1]) + '" r="3.6" fill="#18212E"/>'; });
+    s += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" class="fig-frame"/>';
+    if (f.line) s += '<line x1="' + sx(f.line[0][0]) + '" y1="' + sy(f.line[0][1]) + '" x2="' + sx(f.line[1][0]) + '" y2="' + sy(f.line[1][1]) + '" class="fig-line"/>';
+    f.points.forEach(function (p) { s += '<circle cx="' + sx(p[0]) + '" cy="' + sy(p[1]) + '" r="3.6" class="fig-dot"/>'; });
     s += '<text x="' + (L + pw / 2) + '" y="' + (H - 4) + '" font-size="11" text-anchor="middle">' + (f.xlabel || 'x') + '</text>';
     s += '<text x="11" y="' + (T + ph / 2) + '" font-size="11" text-anchor="middle" transform="rotate(-90 11 ' + (T + ph / 2) + ')">' + (f.ylabel || 'y') + '</text></svg>';
     return '<div style="margin:.8rem 0">' + s + '</div>';
@@ -243,7 +243,9 @@
     var host = $('calcbody');
     if (window.Desmos && Desmos.GraphingCalculator) {
       host.style.height = '100%';
-      var c = Desmos.GraphingCalculator(host, {keypad: true, expressions: true, settingsMenu: false, zoomButtons: true, expressionsTopbar: true});
+      var c = Desmos.GraphingCalculator(host, {keypad: true, expressions: true, settingsMenu: false, zoomButtons: true, expressionsTopbar: true,
+                                              invertedColors: !!(window.Theme && Theme.isDark())});
+      document.addEventListener('themechange', function (e) { c.updateSettings({invertedColors: e.detail.dark}); });
       window._desmos = c; setTimeout(function () { c.resize(); }, 50);
       new ResizeObserver(function () { c.resize(); }).observe($('calc'));
     } else if (window.BuiltinCalc) { BuiltinCalc.mount(host); }

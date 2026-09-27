@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How SAT prep works here: a guide for families</title>
+{% if not pdf %}<script>try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>{% endif %}
+<link rel="stylesheet" href="/static/app.css">
+{% if not pdf %}<script defer src="/static/theme.js"></script>{% endif %}
+<style>
+  .g { max-width: 860px; margin: 1.5rem auto 3rem; padding: 0 1rem; }
+  .g h1 { font-size: 2.4rem; line-height: 1.12; margin: 0 0 .8rem; }
+  .g h2 { font-size: 1.35rem; margin-top: 0; }
+  .g h3 { font-size: 1.02rem; margin: 1rem 0 .3rem; }
+  .g p, .g li { line-height: 1.6; }
+  .g .lede { font-family: var(--serif); font-size: 1.15rem; line-height: 1.6; max-width: 60ch; }
+  .cover { background: var(--sheet); border: 1px solid var(--rule); border-top: 10px solid var(--ink); padding: 2.4rem 2.4rem 2rem; margin-bottom: 1.2rem; }
+  .cover .k { font-weight: 600; color: var(--graphite); margin-bottom: 1.4rem; }
+  .week { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; margin: 1.2rem 0 .4rem; }
+  .week div { border: 1px solid var(--rule); border-left: 5px solid var(--fam); border-radius: 6px; padding: .6rem .7rem; background: var(--field); font-size: .92rem; }
+  .week b { display: block; }
+  .facts { width: 100%; border-collapse: collapse; margin: .4rem 0 .6rem; font-size: .95rem; }
+  .facts th, .facts td { text-align: left; padding: .45rem .55rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .facts th { color: var(--graphite); font-weight: 600; font-size: .85rem; border-bottom: 2px solid var(--ink); }
+  .levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin-top: .6rem; }
+  .levels div { border: 1px solid var(--rule); border-radius: 6px; padding: .7rem; background: var(--field); font-size: .92rem; }
+  .qa dt { font-weight: 700; margin-top: .8rem; }
+  .qa dd { margin: .2rem 0 0; }
+  .g .sheet { break-inside: avoid; }
+  .g .sheet.splittable { break-inside: auto; }
+  .foot { font-size: .8rem; color: var(--graphite); margin-top: 1rem; }
+  @media (max-width: 700px) { .week, .levels { grid-template-columns: 1fr; } .cover { padding: 1.4rem; } .g h1 { font-size: 1.9rem; } }
+  @media print {
+    @page { size: letter; margin: 15mm 14mm; }
+    body { background: #fff; font-size: 10.5pt; }
+    .g { margin: 0; max-width: none; padding: 0; }
+    .g .sheet { border: 1px solid var(--rule); padding: .9rem 1.1rem; margin-bottom: .7rem; }
+    .cover { padding: 1.2rem 1.5rem 1.1rem; }
+    .g h1 { font-size: 1.9rem; }
+    .g .lede { font-size: 1.02rem; }
+    .week { margin-top: .8rem; }
+    .pb { break-before: page; }
+    .cols { grid-template-columns: 1fr 1fr; gap: .7rem; }
+  }
+</style>
+</head>
+<body>
+{% if not pdf %}
+<div class="noprint" style="background:var(--bar);color:var(--bar-ink);padding:.55rem 1.25rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">
+  <a href="{{ url_for('home') }}" style="color:var(--bar-ink)">&larr; Back</a><span style="flex:1"></span>
+  {% if can_pdf %}<a class="btn" href="{{ url_for('guide_pdf') }}">Download PDF</a>{% endif %}
+  <button class="btn ghost" style="color:var(--bar-ink);border-color:var(--bar-muted)" onclick="window.print()">Print</button>
+  <button type="button" class="themebtn">Theme: Auto</button>
+</div>
+{% endif %}
+<main class="g">
+  <section class="cover">
+    <div class="k">Digital SAT tutoring &middot; A guide for families</div>
+    <h1>How SAT prep works here, and <span class="hlmark">why it is set up this way</span></h1>
+    <p class="lede">Your student practices on a program that works like the real test, gets a plan built from their own results, and is measured honestly along the way. This guide explains each piece in plain language.</p>
+    <div class="week">
+      <div class="fam learn"><b>Sundays</b>Lesson on one skill, then 30 minutes of practice.</div>
+      <div class="fam reinforce"><b>Midweek</b>About 30 minutes of homework on that skill.</div>
+      <div class="fam measure"><b>5th Sundays</b>A timed practice test to measure progress.</div>
+      <div class="fam neutral"><b>Every few weeks</b>A progress report like the one described below.</div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <section class="sheet">
+      <h2>Getting started</h2>
+      <ol>
+        <li><b>Add yourself.</b> On your tutor&rsquo;s home Wi-Fi, your student opens the practice site and signs up with their name and a 4-digit PIN.</li>
+        <li><b>Find the starting point.</b> Either a <b>1-hour diagnostic</b> (a shortened, timed, adaptive practice test covering both sections), or, if they already have one, an <b>official SAT, PSAT, or Bluebook score</b>.</li>
+        <li><b>Get a plan.</b> From that result, the program ranks every skill by how many points it is worth to this student right now, and the calendar fills in.</li>
+      </ol>
+    </section>
+    <section class="sheet">
+      <h2>Help while practicing</h2>
+      <p>Your student chooses how much help they want in each practice set:</p>
+      <div class="levels" style="grid-template-columns:1fr">
+        <div><b>Hint first.</b> A wrong first try gets a hint and one more try, then the full explanation.</div>
+        <div><b>Show the answer.</b> The explanation right after the first try.</div>
+        <div><b>Locked.</b> Like the real test: explanations only at the end.</div>
+      </div>
+      <p class="small" style="margin-top:.6rem"><b>Only the first try counts</b> toward the score estimate, whichever they pick, so hints never inflate the numbers.</p>
+    </section>
+  </div>
+
+  <section class="sheet">
+    <h2>The Digital SAT, in one page</h2>
+    <p>Students take the SAT on a laptop or tablet in the College Board&rsquo;s Bluebook app. It has two sections, each split into two timed modules.</p>
+    <table class="facts">
+      <thead><tr><th></th><th>Reading and Writing</th><th>Math</th></tr></thead>
+      <tbody>
+        <tr><td><b>Questions</b></td><td>54 (two modules of 27)</td><td>44 (two modules of 22)</td></tr>
+        <tr><td><b>Time</b></td><td>64 minutes (32 per module)</td><td>70 minutes (35 per module)</td></tr>
+        <tr><td><b>What it looks like</b></td><td>Short passages, one question each: vocabulary in context, main ideas, evidence, grammar and punctuation, transitions.</td><td>Algebra, advanced math, data and statistics, geometry and trigonometry. About a quarter of answers are typed in rather than chosen.</td></tr>
+        <tr><td><b>Tools</b></td><td>Highlighter, cross-out, flag for review.</td><td>A built-in Desmos graphing calculator and a reference sheet, available the whole time.</td></tr>
+      </tbody>
+    </table>
+    <p><b>It adapts.</b> How a student does on the first module of each section decides whether the second module is harder or easier. Only the harder second module can lead to the highest scores. <b>Scores</b> run from 400 to 1600: 200 to 800 for each section. The whole test takes 2 hours and 14 minutes, plus a 10-minute break between sections. A few questions in each module are unscored trial questions.</p>
+    <p class="small muted">Practice here copies all of this: the same module layout and timing, the same tools, and the same adaptive rule between modules. The questions are original, not College Board questions.</p>
+  </section>
+
+  <section class="sheet">
+    <h2>The score estimate: what it is, and what it is not</h2>
+    <p>After enough practice, the program shows a <b>likely score range</b>, for example &ldquo;1080 to 1180, most likely about 1130.&rdquo; It is right about 80% of the time that the real score would fall in that range if the test were taken today.</p>
+    <div class="cols">
+      <div>
+        <h3>Built to be honest</h3>
+        <ul class="small">
+          <li>Only first tries count.</li>
+          <li>A blank answer on a timed test counts as wrong, just as on the real SAT.</li>
+          <li>Untimed practice and practice on one topic count for less.</li>
+          <li>No single skill can dominate: drilling one easy topic cannot produce a high score.</li>
+          <li>Topics with little practice make the range wider, not rosier.</li>
+          <li>Recent work counts more than old work.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What it is not</h3>
+        <ul class="small">
+          <li>Not an official score. The College Board does not publish exactly how it scores the SAT; this is a transparent statistical estimate.</li>
+          <li>Not fixed: it moves as your student improves.</li>
+          <li>Sharper with a real anchor. An official SAT or PSAT score, or a free <b>Bluebook practice test</b>, gives the estimate a solid starting point. Please share those scores with the tutor.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet splittable">
+    <h2>How the plan and calendar decide what comes next</h2>
+    <p>Each student has their own calendar showing what they did, today, and what is planned. Every planned item comes with a one-line &ldquo;why.&rdquo; The rules are the same for everyone:</p>
+    <ol class="rules">{% for t, body in rules %}<li><b>{{ t }}</b> {{ body }}</li>{% endfor %}</ol>
+    <p class="small muted">A worked example: if a student gets only 4 in 10 medium punctuation questions right, and punctuation is about 13% of the Reading and Writing section, punctuation goes near the top of the list. After its lesson it drops down so the next skill gets a turn, and it comes back if it is still weak later.</p>
+  </section>
+
+  <div class="cols">
+    <section class="sheet">
+      <h2>Progress reports</h2>
+      <p>Every few weeks your tutor can send a short report with:</p>
+      <ul class="small">
+        <li>The current likely score range and how it has changed since the start.</li>
+        <li>How much practice happened in the last 30 days.</li>
+        <li>What is going well, and what the lessons are focusing on.</li>
+        <li>The next four weeks of the plan, each with its reason.</li>
+        <li>A personal note from the tutor.</li>
+      </ul>
+    </section>
+    <section class="sheet">
+      <h2>How you can help at home</h2>
+      <ul class="small">
+        <li>Ask to see the Wednesday homework. About 30 focused minutes is the goal.</li>
+        <li>Ask your student to explain one question they got wrong, and why the right answer is right.</li>
+        <li>Protect sleep before practice tests and the real SAT.</li>
+        <li>In the final week before the test: rest, light review, and a checklist. No new material.</li>
+        <li>Encourage a free Bluebook practice test, and share the score with the tutor.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="sheet">
+    <h2>Privacy</h2>
+    <p class="small">Everything is stored on the tutor&rsquo;s own computer, not on a website or in the cloud. Students sign in with a first name and a 4-digit PIN; no email address or other personal information is collected. The only outside connection is the Desmos calculator used during Math. A student&rsquo;s records can be deleted at any time on request.</p>
+  </section>
+
+  <section class="sheet splittable">
+    <h2>Common questions</h2>
+    <dl class="qa small">
+      <dt>Why is the score shown as a range instead of one number?</dt>
+      <dd>Because any single practice score has some luck in it. A range is the honest answer, and it narrows as more questions are answered.</dd>
+      <dt>My student&rsquo;s estimate went down this week. Is something wrong?</dt>
+      <dd>Usually not. Estimates move a little from session to session. What matters is the trend over several weeks, which the report shows as a line over time.</dd>
+      <dt>Why doesn&rsquo;t the plan just drill the weakest skill every week?</dt>
+      <dd>A skill that is rarely tested can be weak without costing many points. The plan weighs how often a skill appears on the real SAT as well as how often it is being missed, and it rotates so no area is neglected.</dd>
+      <dt>Are these real SAT questions?</dt>
+      <dd>No. They are original questions written to match the official format, content, and difficulty. For official practice, use the College Board&rsquo;s free Bluebook practice tests.</dd>
+      <dt>What happens if we miss a Sunday?</dt>
+      <dd>The tutor marks it on the calendar and the plan shifts forward. Nothing is lost.</dd>
+    </dl>
+  </section>
+  <p class="foot">SAT and Bluebook are trademarks of the College Board, which does not endorse this program. Test format details reflect the Digital SAT as described by the College Board.</p>
+</main>
+</body>
+</html>

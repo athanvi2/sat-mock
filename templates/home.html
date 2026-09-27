@@ -28,6 +28,7 @@
     </ol>
     {% endif %}
     <p class="toolbar" style="margin-top:1rem"><a class="btn" href="{{ url_for('practice') }}?what=rec">Practice my recommended skills</a>
+       <a class="btn ghost" href="{{ url_for('my_plan') }}">See my plan</a>
        <a class="btn ghost" href="{{ url_for('practice') }}">Choose something else</a></p>
     <p class="hint" style="margin-top:1rem">{{ next_sun.strftime('%A, %B %d').replace(' 0', ' ') }}: {% if is_mock %}<b>mock SAT day</b> (fifth Sunday).{% else %}regular session, lecture then practice.{% endif %}
       Next mock Sundays: {% for m in mocks %}{{ m.strftime('%b %d').replace(' 0', ' ') }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>

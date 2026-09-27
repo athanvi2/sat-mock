@@ -2,6 +2,7 @@
 {% block title %}Welcome{% endblock %}
 {% block bodyclass %}welcome{% endblock %}
 {% block chrome %}
+<button type="button" class="themebtn corner-theme">Theme: Auto</button>
 <main class="frame wel">
   <section class="wel-cover">
     <p class="wel-kicker">Digital SAT prep</p>
@@ -34,6 +35,7 @@
       </div>
     </form>
     <p class="hint" style="margin-top:1rem">Forgot your PIN? Your tutor can reset it.</p>
+    <p class="hint">Parents: <a href="{{ url_for('guide') }}">how this program works</a>.</p>
     {% else %}
     <p class="muted">No one has signed up yet. Tap <b>I&rsquo;m new here</b> to be the first.</p>
     {% endif %}

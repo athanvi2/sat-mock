@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS prior_scores(
 CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
 CREATE TABLE IF NOT EXISTS creds(
   id TEXT PRIMARY KEY, x TEXT NOT NULL, y TEXT NOT NULL, sign_count INTEGER DEFAULT 0, label TEXT, created REAL);
+CREATE TABLE IF NOT EXISTS events(
+  id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, title TEXT, note TEXT, created REAL);
+CREATE TABLE IF NOT EXISTS plan_snapshots(
+  student_id INTEGER NOT NULL, day TEXT NOT NULL, plan_json TEXT NOT NULL, PRIMARY KEY(student_id, day));
 CREATE INDEX IF NOT EXISTS ix_items_module ON items(module_id);
 CREATE INDEX IF NOT EXISTS ix_modules_session ON modules(session_id);
 CREATE INDEX IF NOT EXISTS ix_sessions_student ON sessions(student_id);
@@ -46,6 +50,7 @@ MIGRATIONS = [
     ('sessions', 'assist', "TEXT DEFAULT 'end'"), ('sessions', 'purpose', "TEXT DEFAULT ''"), ('sessions', 'focus', "TEXT DEFAULT ''"),
     ('responses', 'attempts', 'INTEGER DEFAULT 0'), ('responses', 'hint_used', 'INTEGER DEFAULT 0'),
     ('responses', 'retry_answer', 'TEXT'), ('responses', 'retry_correct', 'INTEGER'),
+    ('students', 'report_note', 'TEXT'),
 ]
 
 
@@ -119,6 +124,8 @@ def delete_student(student_id):
     c.execute('DELETE FROM modules WHERE session_id IN %s' % sess, (student_id,))
     c.execute('DELETE FROM sessions WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM prior_scores WHERE student_id=?', (student_id,))
+    c.execute('DELETE FROM events WHERE student_id=?', (student_id,))
+    c.execute('DELETE FROM plan_snapshots WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM students WHERE id=?', (student_id,))
     c.commit()
     c.close()

@@ -5,7 +5,8 @@
 <div class="toolbar" style="align-items:baseline">
   <h1 style="margin:0">{{ st['name'] }}</h1>
   <span class="muted">{% if st['grade'] %}Grade {{ st['grade'] }}. {% endif %}Goal {{ st['goal_total'] }}.{% if st['test_date'] %} SAT on {{ st['test_date'] }}.{% endif %} Joined {{ st['created']|ago }}.</span>
-  <span style="margin-left:auto" class="toolbar"><a class="btn" href="{{ url_for('instructor_student', stid=st['id'], view='parent') }}">Parent summary</a></span>
+  <span style="margin-left:auto" class="toolbar"><a class="btn ghost" href="{{ url_for('instructor_plan', stid=st['id']) }}">Plan and calendar</a>
+    <a class="btn" href="{{ url_for('parent_report', stid=st['id']) }}">Parent report</a></span>
 </div>
 {% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
 {% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}

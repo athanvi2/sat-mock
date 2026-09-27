@@ -110,6 +110,14 @@
     </section>
   </div>
 
+  {% set pacing = [] %}{% for sec in ('rw', 'math') %}{% for kind, head, detail in d['timing'][sec]['findings'] %}{% set _ = pacing.append((sec, kind, head, detail)) %}{% endfor %}{% endfor %}
+  {% if pacing %}
+  <section class="sheet">
+    <h2>Pacing</h2>
+    {% for sec, kind, head, detail in pacing %}<p><b>{{ SECTION_NAME[sec] }}: {{ head }}.</b> {{ detail|safe }}</p>{% endfor %}
+  </section>
+  {% endif %}
+
   <section class="sheet splittable">
     <h2>The next four weeks</h2>
     {% if upcoming %}

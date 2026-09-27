@@ -15,7 +15,8 @@ What goes into an estimate, and why (each rule is a guard against a specific way
      raise the estimate. Blanks in untimed practice are questions not reached and are left out (db.response_rows).
   3. Recency: weight halves every 60 days, so improvement shows up and old habits fade.
   4. Context weights: untimed practice x0.7 (no time pressure inflates accuracy), skill- or domain-focused practice
-     x0.6 (a student drilling one topic is warmed up on it).
+     x0.6 (a student drilling one topic is warmed up on it). Paper homework entered afterwards x0.5 (no clock, notes and
+     help may be at hand, and answers are typed in after the fact), on top of the x0.6 for being on one skill.
   5. Domain balance: if one content domain makes up more of the evidence than it does of the real test, its answers
      are scaled down to its official share. Drilling linear equations cannot stand in for a whole Math score.
   5b. Per-skill cap: at most 12 answers' worth of evidence per skill. Questions on one skill are strongly correlated
@@ -33,7 +34,7 @@ GRID = [i * 0.05 for i in range(-80, 81)]  # theta from -4 to 4
 PRIOR_SD = 1.2
 SLOPE = 105.0
 HALF_LIFE_DAYS = 60.0
-W_UNTIMED, W_FOCUSED = 0.7, 0.6
+W_UNTIMED, W_FOCUSED, W_HOMEWORK = 0.7, 0.6, 0.5
 DOMAIN_SD = 0.5          # how far one domain's ability can sit from the section's, in theta units
 DOMAIN_FULL_N = 4.0      # effective answers in a domain before it counts as covered
 SKILL_CAP = 12.0         # most evidence one skill can contribute to a section estimate
@@ -87,6 +88,7 @@ def row_weight(r, now_ts):
     age = max(0.0, (now_ts - r['ts']) / 86400.0)
     w = 0.5 ** (age / HALF_LIFE_DAYS)
     if r.get('mode') == 'practice' and not r.get('timed', 1): w *= W_UNTIMED
+    if r.get('mode') == 'homework': w *= W_HOMEWORK
     if r.get('focus'): w *= W_FOCUSED
     return w
 

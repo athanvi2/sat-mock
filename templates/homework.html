@@ -13,6 +13,7 @@
   <div class="cover">
     <h1>Homework: {{ skill['name'] }}</h1>
     <p>Name: {% if st %}<b>{{ st['name'] }}</b>{% else %}<span class="blank" style="width:14rem"></span>{% endif %} &nbsp; {% if due %}Due: <b>{{ due }}</b>{% else %}Date: <span class="blank"></span>{% endif %}</p>
+    {% if entry and not key %}<p class="small">When you finish, open the app and choose <b>Homework</b> to enter your answers. You will see what you got right, with explanations, and it counts toward your progress.</p>{% endif %}
     <h2>What can you see?</h2>
     <ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
     <h2>How to do this</h2>

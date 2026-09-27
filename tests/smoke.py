@@ -215,6 +215,72 @@ if __import__('pdfout').available():
     r = A.app.test_client().get('/guide.pdf'); assert r.status_code == 200 and r.data[:4] == b'%PDF'
     print('pdf export ok')
 assert b'class="themebtn' in c.get('/').data and b'theme.js' in c.get('/').data
+# ------------------------------------------------------------------ paper homework: entering answers
+import scoring as S
+qs = A.build_homework(me, 'boundaries', 77)['qs']
+db.save_sheet(me['id'], '2026-10-07|homework|boundaries', 'boundaries', 'homework', '2026-10-07', 'Homework - due Wed Oct 7 - Boundaries', qs)
+hid = db.q('SELECT id FROM hw_sheets WHERE student_id=?', (me['id'],), one=True)['id']
+r = ok(c.get('/homework/answers'), 'my homework'); assert b'Enter answers' in r.data and b'Boundaries' in r.data
+r = ok(c.get('/homework/answers/%d' % hid), 'enter page'); assert r.data.count(b'class="arow"') == len(qs)
+assert A.app.test_client().get('/homework/answers/%d' % hid, environ_overrides=REMOTE).status_code in (302, 404)
+form = {}
+for i, qd in enumerate(qs):
+    if i == 0: continue                        # left blank
+    form['a%d' % i] = qd['answer'] if i % 3 else wrong(qd)
+r = ok(c.post('/homework/answers/%d' % hid, data=form), 'enter answers'); assert '/review/' in r.headers['Location']
+hs = db.q('SELECT * FROM hw_sheets WHERE id=?', (hid,), one=True); hsid = hs['session_id']
+hsess = db.q('SELECT * FROM sessions WHERE id=?', (hsid,), one=True)
+assert hsess['mode'] == 'homework' and hsess['finished'] and not hsess['timed']
+resp = db.q('SELECT r.correct FROM responses r JOIN items i ON i.id=r.item_id JOIN modules m ON m.id=i.module_id WHERE m.session_id=?', (hsid,))
+assert len(resp) == len(qs) - 1 and sum(x['correct'] for x in resp) == len([i for i in range(1, len(qs)) if i % 3])
+hrows = [x for x in db.response_rows(me['id']) if x['session_id'] == hsid]
+assert len(hrows) == len(qs) - 1, 'blank homework answers are left out, not counted wrong'
+assert S.row_weight(hrows[0], time.time()) < S.row_weight(dict(hrows[0], mode='practice', timed=1), time.time())
+r = ok(c.get(r.headers['Location']), 'homework review'); assert b'Back to homework' in r.data and b'Report a problem' in r.data
+ok(c.post('/homework/answers/%d' % hid, data=dict(a1=qs[1]['answer'])), 're-enter')
+assert db.q('SELECT COUNT(*) n FROM sessions WHERE mode=? AND student_id=?', ('homework', me['id']), one=True)['n'] == 1, 're-entry replaces'
+hsid = db.q('SELECT session_id FROM hw_sheets WHERE id=?', (hid,), one=True)['session_id']
+r = ok(ci.get('/instructor/students/%d' % me['id']), 'tutor sees sheets'); assert b'Homework sheets' in r.data and b'1 of %d right' % len(qs) in r.data
+db.forget_sheet(me['id'], '2026-10-07|homework|boundaries')
+assert db.q('SELECT 1 FROM hw_sheets WHERE id=?', (hid,), one=True), 'an entered sheet is never forgotten'
+print('homework entry ok')
+
+# ------------------------------------------------------------------ reporting and retiring questions (manual only)
+it = db.q('SELECT i.id, i.uid, i.skill, i.d FROM items i JOIN modules m ON m.id=i.module_id WHERE m.session_id=? ORDER BY i.idx LIMIT 1 OFFSET 1', (hsid,), one=True)
+r = ok(c.post('/flag/%d' % it['id'], data=dict(reason='key', note='B looks right too')), 'flag')
+assert db.q('SELECT reason FROM flags WHERE item_id=?', (it['id'],), one=True)['reason'] == 'key'
+assert A.app.test_client().get('/instructor/questions', environ_overrides=REMOTE).status_code == 404
+r = ok(ci.get('/instructor'), 'home'); assert b'Reported questions (1)' in r.data
+r = ok(ci.get('/instructor/questions'), 'questions'); assert b'B looks right too' in r.data and b'marked correct' in r.data
+assert it['uid'] not in A.pool.RETIRED, 'reporting alone never retires a question'
+fid = db.q('SELECT id FROM flags WHERE item_id=?', (it['id'],), one=True)['id']
+ok(ci.post('/instructor/flags/%d/dismiss' % fid), 'dismiss'); assert db.q('SELECT action FROM flags WHERE id=?', (fid,), one=True)['action'] == 'dismissed'
+r = ok(ci.get('/review/%d' % hsid), 'tutor review'); assert b'Retire this question' in r.data and b'Report a problem' not in r.data
+ok(ci.post('/instructor/questions/retire', data=dict(item_id=it['id'], note='two defensible answers', back='/review/%d?' % hsid)), 'retire')
+assert it['uid'] in A.pool.RETIRED and db.q('SELECT 1 FROM retired WHERE uid=?', (it['uid'],), one=True)
+got = set(A.pool.make_safe(it['skill'], it['d'], k, False, set())['uid'] for k in range(300))
+assert it['uid'] not in got, 'a retired question was handed out again'
+r = ok(ci.get('/instructor/questions'), 'retired list'); assert b'two defensible answers' in r.data
+ok(ci.post('/instructor/questions/restore', data=dict(uid=it['uid'])), 'restore'); assert it['uid'] not in A.pool.RETIRED
+print('question reports ok')
+
+# ------------------------------------------------------------------ timing analytics
+def trow(d, sec, ok_, t, **kw):
+    r = dict(section='rw', d=d, correct=ok_, time_ms=int(t * 1000), omitted=0, mode='practice', assist='end', limit_sec=0)
+    r.update(kw); return r
+rush = [trow(2, 'rw', i % 4 == 0, 20) for i in range(12)] + [trow(0, 'rw', 1, 60) for i in range(12)]
+tm = A.analytics.timing(rush)['rw']
+assert [h for k, h, _ in tm['findings']] == ['Rushing hard questions'], tm['findings']
+guess = [trow(1, 'rw', i % 5 == 0, 12) for i in range(10)] + [trow(1, 'rw', 1, 70) for i in range(20)]
+assert 'Quick answers are often guesses' in [h for k, h, _ in A.analytics.timing(guess)['rw']['findings']]
+calm = [trow(d, 'rw', 1, 60 + 10 * d) for d in (0, 1, 2) for _ in range(10)]
+tm = A.analytics.timing(calm)['rw']; assert [h for k, h, _ in tm['findings']] == ['Pacing looks healthy'], tm['findings']
+hints = [trow(1, 'rw', 1, 300, assist='hint') for _ in range(30)] + [trow(1, 'rw', 1, 0, mode='homework') for _ in range(30)]
+assert A.analytics.timing(hints)['rw']['n'] == 0, 'hint sets and paper homework do not count toward timing'
+assert '<svg' in A.analytics.svg_timing(A.analytics.timing(calm)['rw'])
+r = ok(c.get('/dashboard'), 'dashboard timing'); assert b'Time per question' in r.data
+print('timing ok')
+
 ok(ci.post('/instructor/students/%d/edit' % added['id'], data=dict(name='Added By Tutor', goal='1400', grade='10', pin='1357')), 'edit')
 assert auth.check_pin(db.q('SELECT pin_hash FROM students WHERE id=?', (added['id'],), one=True)['pin_hash'], '1357')
 ok(ci.post('/instructor/students/%d/scores' % added['id'], data=dict(test='SAT', taken='2026-05-02', rw='610', math='590')), 'score')

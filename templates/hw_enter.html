@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Enter answers{% endblock %}
+{% block content %}
+<h1>Enter answers: {{ name }}</h1>
+<p class="prose">{{ 'Refresher' if row['kind'] == 'refresher' else 'Homework' }}{% if due %} due {{ due|ds('%A, %B %-d') }}{% endif %}{% if st and not s %}, for <b>{{ st['name'] }}</b>{% endif %}.
+  Copy the answers from the paper sheet, question by question. Leave a question blank if it was skipped; blanks do not count against you.
+  {% if row['session_id'] %}<br><b>These answers were already entered.</b> Saving again replaces them.{% endif %}</p>
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+<form method="post" class="sheet answersheet" autocomplete="off">
+  {% for qd in qs %}{% set i = loop.index0 %}{% set cur = prev.get(i, '') %}
+  <fieldset class="arow">
+    <legend>{{ loop.index }}</legend>
+    {% if qd['type'] == 'mc' %}
+      <div class="bubbles">{% for L in 'ABCD' %}<label><input type="radio" name="a{{ i }}" value="{{ L }}" {% if cur == L %}checked{% endif %}><span>{{ L }}</span></label>{% endfor %}
+        <label class="skip"><input type="radio" name="a{{ i }}" value="" {% if not cur %}checked{% endif %}><span>Blank</span></label></div>
+    {% else %}
+      <input type="text" name="a{{ i }}" value="{{ cur }}" inputmode="decimal" maxlength="12" class="gridin" aria-label="Answer to question {{ loop.index }}" placeholder="Your answer">
+    {% endif %}
+  </fieldset>
+  {% endfor %}
+  <p style="margin-top:1rem"><button class="btn">Save and check</button> <a class="btn ghost" href="{{ url_for('homework_answers') if s else url_for('instructor_student', stid=st['id']) }}">Cancel</a></p>
+</form>
+{% endblock %}

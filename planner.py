@@ -105,10 +105,22 @@ def plan(student_id, today=None):
 
     # ---------------- past: what actually happened
     sess = db.q('SELECT * FROM sessions WHERE student_id=? ORDER BY created', (student_id,))
+    sheets = dict((r['session_id'], r) for r in db.q('SELECT * FROM hw_sheets WHERE student_id=? AND session_id IS NOT NULL', (student_id,)))
+    done_hw = set()  # (day, kind) of homework whose answers were entered: shown as done on its due date, and that slot is filled
     for s in sess:
         day = datetime.date.fromtimestamp(s['created'])
         rows = db.q('SELECT r.correct, r.answer FROM responses r JOIN items i ON i.id=r.item_id JOIN modules m ON m.id=i.module_id WHERE m.session_id=?', (s['id'],))
         n, right = len(rows), sum(1 for r in rows if r['correct'])
+        if s['mode'] == 'homework':
+            sh = sheets.get(s['id'])
+            kind = sh['kind'] if sh else 'homework'
+            if sh and sh['due']: day = _d(sh['due'])
+            skill = sh['skill'] if sh else None
+            done_hw.add((day, kind))
+            items.append(dict(day=day, kind=kind, title='%s: %s' % (KIND_LABEL[kind], SKILLS[skill]['name']) if skill else s['label'],
+                              why='Answers entered %s: %d right out of %d answered.' % (datetime.date.fromtimestamp(s['created']).strftime('%b %d').replace(' 0', ' '), right, n),
+                              status='done', skill=skill, session_id=s['id']))
+            continue
         kind = 'diagnostic' if s['purpose'] == 'diagnostic' else ('mock' if s['mode'] == 'exam' else 'practice')
         why = ('%d of %d right on the first try.' % (right, n) if n else 'Started, no answers yet.') + ('' if s['finished'] else ' Not finished.')
         items.append(dict(day=day, kind=kind, title=s['label'], why=why, status='done' if s['finished'] else 'open', skill=None, session_id=s['id']))
@@ -131,7 +143,7 @@ def plan(student_id, today=None):
     end = min(end, today + datetime.timedelta(weeks=MAX_WEEKS))
     has_start = st['onboard'] in ('diagnostic', 'prior') or bool(d['priors'])
     diag_done = any(s['purpose'] == 'diagnostic' and s['finished'] for s in sess)
-    done_today = any(datetime.date.fromtimestamp(s['created']) == today for s in sess)
+    done_today = any(datetime.date.fromtimestamp(s['created']) == today for s in sess if s['mode'] != 'homework')
     pr = priorities(d)
     gains = dict((x['skill'], x['gain']) for x in pr)
     for k, n in recent_lessons(student_id, today).items():  # rule 3 also covers lessons already held, not just planned ones
@@ -194,6 +206,7 @@ def plan(student_id, today=None):
                     refresher_weeks.add(week)
     if test_day:
         items.append(dict(day=test_day, kind='sat', title='SAT', status='planned', skill=None, why='Test day. The plan above counts down to this date.'))
+    items = [i for i in items if not (i['status'] == 'planned' and (i['day'], i['kind']) in done_hw)]  # already handed in
     items.sort(key=lambda x: (x['day'], x['kind']))
     for it in items:
         if it['status'] == 'planned' and it['day'] < today: it['status'] = 'missed'

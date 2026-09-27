@@ -23,6 +23,7 @@
     <a href="{{ url_for('practice') }}" {% if request.endpoint == 'practice' %}class="on"{% endif %}>Practice</a>
     <a href="{{ url_for('exam') }}" {% if request.endpoint == 'exam' %}class="on"{% endif %}>Mock exam</a>
     <a href="{{ url_for('my_plan') }}" {% if request.endpoint == 'my_plan' %}class="on"{% endif %}>My plan</a>
+    <a href="{{ url_for('homework_answers') }}" {% if request.endpoint in ('homework_answers', 'homework_enter') %}class="on"{% endif %}>Homework</a>
     <a href="{{ url_for('dashboard_view') }}" {% if request.endpoint in ('dashboard_view', 'scores') %}class="on"{% endif %}>My progress</a>
     {% endif %}
     <a href="{{ url_for('skills_index') }}" {% if request.endpoint in ('skills_index', 'lecture', 'homework') %}class="on"{% endif %}>Skills and lectures</a>

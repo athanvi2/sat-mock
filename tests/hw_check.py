@@ -43,6 +43,8 @@ first = top(d)[0]
 rows = db.q('SELECT sheet, uid FROM hw_items WHERE student_id=?', (sid,))
 check(len(rows) >= 10 and all(r['sheet'].startswith('2026-10-07|homework|') for r in rows), 'the sheet\'s %d questions are recorded' % len(rows))
 check(set(r['uid'] for r in rows) <= set(db.seen_uids(sid)), 'and count as seen for later practice, tests and sheets')
+sh = db.q('SELECT * FROM hw_sheets WHERE student_id=?', (sid,))
+check(len(sh) == 1 and len(json.loads(sh[0]['qjson'])) == len(rows), 'the sheet\'s questions are saved for answer entry')
 
 # unchanged plan: nothing regenerated
 r = hwsync.sync_student(A.app, sid, today)
@@ -81,6 +83,18 @@ cur = top(d)[0]
 os.remove(os.path.join(d, cur))
 r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
 check(top(d) == [cur], 'a deleted current sheet is recreated on the next update')
+# entering the answers marks it done on the calendar; the next sheet takes its place and the entered one stays "seen"
+row = db.q("SELECT * FROM hw_sheets WHERE student_id=? AND due='2026-10-21'", (sid,), one=True)
+stu = db.q('SELECT * FROM students WHERE id=?', (sid,), one=True)
+real_soon, hwsync.sync_soon = hwsync.sync_soon, lambda *a, **k: None  # the background update would use the real date
+A.enter_sheet_answers(row, stu, [q['answer'] for q in json.loads(row['qjson'])])
+hwsync.sync_soon = real_soon
+pl = __import__('planner').plan(sid, datetime.date(2026, 10, 15))
+done = [i for i in pl['items'] if i['day'] == datetime.date(2026, 10, 21) and i['kind'] == 'homework']
+check(len(done) == 1 and done[0]['status'] == 'done' and 'Answers entered' in done[0]['why'], 'entered homework shows as done on its due date')
+r = hwsync.sync_student(A.app, sid, datetime.date(2026, 10, 15))
+check(len(top(d)) == 1 and 'due Wed Oct 28' in top(d)[0], 'the next sheet replaces an entered one: %s' % top(d))
+check(db.q("SELECT COUNT(*) n FROM hw_items WHERE student_id=? AND sheet LIKE '2026-10-21%'", (sid,), one=True)['n'] > 0, 'an entered sheet stays seen')
 
 # renaming the student carries the folder over
 db.x("UPDATE students SET name='Samuel Rivera' WHERE id=?", (sid,))

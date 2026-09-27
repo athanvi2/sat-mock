@@ -1,0 +1,15 @@
+{# Homework sheets from the Desktop folder and their entered answers. Needs: sheets (app.sheet_rows), view ('student' | 'tutor'). #}
+{% if sheets %}
+<div class="tablewrap"><table class="list">
+  <thead><tr><th>Due</th><th>Sheet</th><th class="r">Result</th><th></th></tr></thead>
+  <tbody>{% for x in sheets %}
+    <tr><td>{% if x.due %}{{ x.due|ds('%a %b %-d') }}{% endif %}</td>
+      <td>{{ 'Refresher' if x.refresher else 'Homework' }}: <b>{{ x.name }}</b> <span class="muted small">({{ x.n }} questions)</span></td>
+      <td class="r">{% if x.res %}{{ x.res.right }} of {{ x.n }} right{% if x.res.answered < x.n %} <span class="muted small">({{ x.n - x.res.answered }} left blank)</span>{% endif %}{% else %}<span class="pill new">Not entered</span>{% endif %}</td>
+      <td class="r">{% if x.res %}<a href="{{ url_for('review', sid=x.r['session_id']) }}">Review</a> &middot; <a href="{{ url_for('homework_enter', hid=x.r['id']) }}">Change answers</a>
+        {% else %}<a class="btn" href="{{ url_for('homework_enter', hid=x.r['id']) }}">Enter answers</a>{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+{% else %}
+<p class="muted">{% if view == 'student' %}Your homework sheets will be listed here once your tutor hands them out.{% else %}No homework sheets yet. They are made in the Desktop folder once the calendar has homework.{% endif %}</p>
+{% endif %}

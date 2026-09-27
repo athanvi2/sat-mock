@@ -46,6 +46,23 @@
 </div>
 {% endif %}
 
+{% if d['timing'] and (d['timing']['rw']['n'] >= 20 or d['timing']['math']['n'] >= 20) %}
+<section class="sheet">
+  <h2>Time per question</h2>
+  <p class="small muted">From in-app sets where answers were shown only at the end, so the clock measures thinking time. Bars: median seconds per question at each difficulty. Dashed line: the real test&rsquo;s average time per question. Taking longer on hard questions than on easy ones is normal and good.</p>
+  <div class="cols" style="grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))">{% for sec in ('rw', 'math') %}{% set t = d['timing'][sec] %}
+    <div>
+      <h3>{{ SECTION_NAME[sec] }}</h3>
+      {% if t['n'] >= 20 %}
+        {{ svg_timing(t)|safe }}
+        <p class="small muted" style="margin-top:.2rem">Dashed line: the real test&rsquo;s average, {{ t['target']|round|int }} seconds per question.</p>
+        {% for kind, head, detail in t['findings'] %}<p><span class="pill {{ 'miss' if kind == 'watch' else 'strong' }}">{{ 'Watch' if kind == 'watch' else 'Good' }}</span> <b>{{ head }}.</b> {{ detail|safe }}</p>{% endfor %}
+      {% else %}<p class="muted small">Appears after about 20 answered questions in timed or end-of-set practice ({{ t['n'] }} so far).</p>{% endif %}
+    </div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% if view != 'parent' and d['recommend'] %}
 <section class="sheet">
   <h2>Up next</h2>

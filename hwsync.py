@@ -94,7 +94,12 @@ def _title(it):
 
 
 def _build(app, student, it):
-    """The questions for one calendar sheet. Built once, then rendered as the student copy and the answer key."""
+    """The questions for one calendar sheet, rendered as the student copy and the answer key. A sheet made before (whose
+    PDF was deleted, say) keeps its saved questions, so the student's printout and the answer entry always match."""
+    qs = db.sheet_questions(student['id'], _key(it))
+    if qs:
+        n = float(len(qs))
+        return dict(qs=qs, n=len(qs), level=dict((d, sum(1 for q in qs if q['d'] == d) / n) for d in (0, 1, 2)))
     with app.test_request_context('/homework'):
         return app.extensions['build_homework'](student, it['skill'], _seed(student['id'], it), sheet=_key(it))
 
@@ -104,7 +109,7 @@ def _render(app, student, it, hw, key):
     import flask
     with app.test_request_context('/homework'):
         due = '%s, %s %d' % (it['day'].strftime('%A'), it['day'].strftime('%B'), it['day'].day)
-        return flask.render_template('homework.html', s=None, st=student, skill=SKILLS[it['skill']], seed=0, mins=30, key=key, due=due, **hw)
+        return flask.render_template('homework.html', s=None, st=student, skill=SKILLS[it['skill']], seed=0, mins=30, key=key, due=due, entry=True, **hw)
 
 
 def _manifest_path(d):
@@ -171,6 +176,7 @@ def sync_student(app, student_id, today=None):
         hw = _build(app, student, it)
         sheet = pdfout.html_to_pdf(_render(app, student, it, hw, False))
         keypdf = pdfout.html_to_pdf(_render(app, student, it, hw, True))
+        db.save_sheet(student_id, k, it['skill'], it['kind'], it['day'].isoformat(), _title(it), hw['qs'])  # for answer entry
         db.record_sheet(student_id, k, [q['uid'] for q in hw['qs']])  # these now count as seen for practice, tests, later sheets
         hist = os.path.join(d, 'History', '%s - %s' % (stamp, _title(it)))
         os.makedirs(hist, exist_ok=True)

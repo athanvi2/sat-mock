@@ -27,6 +27,7 @@ from bank.skills import DOMAINS, REFERENCE_HTML, SECTION_NAME, SKILLS
 
 app = Flask(__name__)
 db.init()
+pool.RETIRED.update(db.retired_uids())  # questions the tutor took out of use (see /instructor/questions)
 app.secret_key = auth.secret_key()
 app.config.update(SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_HTTPONLY=True)
 DESMOS_KEY = os.environ.get('DESMOS_API_KEY', 'dcb31709b452b1cf9dc26972add0fda6')  # demo key; get your own free key at desmos.com/api
@@ -198,6 +199,8 @@ def svg_scatter(f):
 
 app.jinja_env.filters['fig'] = svg_scatter
 app.jinja_env.filters['mmss'] = fmt_time
+app.jinja_env.filters['fromjson'] = lambda t: json.loads(t) if t else None
+app.jinja_env.globals['svg_timing'] = analytics.svg_timing
 app.jinja_env.globals.update(SECTION_NAME=SECTION_NAME, SKILLS=SKILLS, DOMAINS=DOMAINS, VARIANT_LABEL=pool.VARIANT_LABEL)
 
 
@@ -227,7 +230,7 @@ def ago(ts):
     if not ts: return 'never'
     d = time.time() - ts
     if d < 3600: return 'just now'
-    if d < 86400: return '%d hours ago' % (d // 3600)
+    if d < 86400: return '1 hour ago' if d < 7200 else '%d hours ago' % (d // 3600)
     if d < 2 * 86400: return 'yesterday'
     return '%d days ago' % (d // 86400)
 
@@ -811,7 +814,8 @@ def review(sid):
     for r in rows:
         qd = json.loads(r['qjson'])
         items.append(dict(r=r, q=qd, skill=SKILLS[r['skill']], mine=r['answer'] or '', ok=bool(r['correct'])))
-    return render_template('review.html', s=me(), st=s, sess=sess, items=items, only=request.args.get('only'))
+    return render_template('review.html', s=me(), st=s, sess=sess, items=items, only=request.args.get('only'), msg=request.args.get('msg'),
+                           reasons=FLAG_REASONS, retired=pool.RETIRED)
 
 
 # ------------------------------------------------------------------ dashboard
@@ -932,6 +936,151 @@ def build_homework(student, skill, seed, n=None, sheet=None):
 app.extensions['build_homework'] = build_homework  # hwsync renders sheets in the background with the same builder
 
 
+# ------------------------------------------------------------------ homework answers (paper sheets from the Desktop folder)
+def sheet_rows(student_id):
+    """The student's calendar homework sheets, newest due date first, with how the entered answers went."""
+    out = []
+    for r in db.q('SELECT * FROM hw_sheets WHERE student_id=? AND withdrawn IS NULL ORDER BY due DESC, id DESC', (student_id,)):
+        n = len(json.loads(r['qjson']))
+        res = None
+        if r['session_id']:
+            rr = db.q('''SELECT r.correct FROM responses r JOIN items i ON i.id=r.item_id JOIN modules m ON m.id=i.module_id
+                         WHERE m.session_id=?''', (r['session_id'],))
+            res = dict(answered=len(rr), right=sum(1 for x in rr if x['correct']))
+        due = planner._d(r['due']) if r['due'] else None
+        out.append(dict(r=r, n=n, res=res, due=due, name=SKILLS[r['skill']]['name'], refresher=r['kind'] == 'refresher'))
+    return out
+
+
+def _sheet_or_404(hid):
+    row = db.q('SELECT * FROM hw_sheets WHERE id=?', (hid,), one=True)
+    if not row: abort(404)
+    if is_instructor():
+        return row, _student_or_404(row['student_id'])
+    s = need_student()
+    if row['student_id'] != s['id']: abort(404)
+    return row, s
+
+
+def enter_sheet_answers(row, st, answers):
+    """Turn a finished paper sheet into an untimed 'homework' session: first attempts only, blanks left out (untimed),
+    counted toward progress at a reduced weight (scoring.W_HOMEWORK). Entering again replaces the earlier entry."""
+    qs = json.loads(row['qjson'])
+    if row['session_id']: db.delete_session(row['session_id'])
+    sec = SKILLS[row['skill']]['section']
+    what = 'Refresher' if row['kind'] == 'refresher' else 'Homework'
+    sid = create_session(st, 'homework', '%s: %s' % (what, SKILLS[row['skill']]['name']), row['title'] or what,
+                         dict(order=[sec], sheet=row['sheet']), 'end', False, purpose='homework', focus='skill')
+    now = time.time()
+    mid = db.x('INSERT INTO modules(session_id, seq, section, module_no, variant, n, limit_sec, warn_sec, started, finished) VALUES (?,?,?,?,?,?,?,?,?,?)',
+               (sid, 0, sec, 1, 'm1', len(qs), 0, 0, now, now))
+    db.add_items(mid, qs)
+    items = db.q('SELECT id, qjson FROM items WHERE module_id=? ORDER BY idx', (mid,))
+    for it, ans in zip(items, answers):
+        if not ans: continue
+        qd = json.loads(it['qjson'])
+        db.x('INSERT INTO responses(item_id, answer, correct, is_mc, time_ms, ts, attempts) VALUES (?,?,?,?,?,?,?)',
+             (it['id'], ans, grade(qd, ans), 1 if qd['type'] == 'mc' else 0, 0, now, 1))
+    db.x('UPDATE sessions SET finished=? WHERE id=?', (now, sid))
+    db.x('UPDATE hw_sheets SET session_id=? WHERE id=?', (sid, row['id']))
+    hwsync.sync_soon(app, st['id'])  # the calendar marks it done, so next week's sheet can take its place
+    return sid
+
+
+@app.route('/homework/answers')
+def homework_answers():
+    s = need_student()
+    return render_template('hw_answers.html', s=s, st=s, sheets=sheet_rows(s['id']), view='student')
+
+
+@app.route('/homework/answers/<int:hid>', methods=['GET', 'POST'])
+def homework_enter(hid):
+    row, st = _sheet_or_404(hid)
+    qs = json.loads(row['qjson'])
+    if request.method == 'POST':
+        answers = []
+        for i, qd in enumerate(qs):
+            a = (request.form.get('a%d' % i) or '').strip()[:20]
+            if qd['type'] == 'mc' and a.upper() not in ('A', 'B', 'C', 'D'): a = ''
+            answers.append(a.upper() if qd['type'] == 'mc' else a)
+        if not any(answers):
+            return redirect(url_for('homework_enter', hid=hid, err='Enter at least one answer.'))
+        sid = enter_sheet_answers(row, st, answers)
+        return redirect(url_for('review', sid=sid, msg='Answers saved. Here is how it went, with explanations.'))
+    prev = {}
+    if row['session_id']:
+        for r in db.q('''SELECT i.idx, r.answer FROM items i JOIN modules m ON m.id=i.module_id LEFT JOIN responses r ON r.item_id=i.id
+                         WHERE m.session_id=?''', (row['session_id'],)):
+            prev[r['idx']] = r['answer'] or ''
+    return render_template('hw_enter.html', s=me(), st=st, row=row, qs=qs, prev=prev, name=SKILLS[row['skill']]['name'],
+                           due=planner._d(row['due']) if row['due'] else None, err=request.args.get('err'))
+
+
+# ------------------------------------------------------------------ reporting problems with questions (tutor decides; nothing automatic)
+FLAG_REASONS = {'key': 'The marked answer looks wrong', 'unclear': 'The question is confusing or has two right answers',
+                'typo': 'Typo or display problem', 'other': 'Something else'}
+
+
+@app.route('/flag/<int:item_id>', methods=['POST'])
+def flag_item(item_id):
+    it = db.q('''SELECT i.*, m.session_id FROM items i JOIN modules m ON m.id=i.module_id WHERE i.id=?''', (item_id,), one=True)
+    if not it: abort(404)
+    sess, st = student_for_session(it['session_id'])
+    reason = request.form.get('reason')
+    if reason not in FLAG_REASONS: reason = 'other'
+    db.x('INSERT INTO flags(student_id, item_id, uid, skill, reason, note, created) VALUES (?,?,?,?,?,?,?)',
+         (st['id'], item_id, it['uid'], it['skill'], reason, (request.form.get('note') or '').strip()[:500], time.time()))
+    return redirect(url_for('review', sid=sess['id'], msg='Thanks, your tutor will take a look.') + '#q%d' % it['id'])
+
+
+@app.route('/instructor/questions')
+def instructor_questions():
+    need_instructor()
+    groups = {}
+    for f in db.q('''SELECT f.*, st.name AS student, i.qjson, r.answer FROM flags f LEFT JOIN students st ON st.id=f.student_id
+                     LEFT JOIN items i ON i.id=f.item_id LEFT JOIN responses r ON r.item_id=f.item_id
+                     WHERE f.resolved IS NULL ORDER BY f.created'''):
+        g = groups.setdefault(f['uid'], dict(uid=f['uid'], skill=SKILLS.get(f['skill'], {}).get('name', f['skill']), q=json.loads(f['qjson']) if f['qjson'] else None,
+                                            flags=[], retired=f['uid'] in pool.RETIRED))
+        g['flags'].append(dict(f))
+    retired = [dict(r, name=SKILLS.get(r['skill'], {}).get('name', r['skill'])) for r in db.q('SELECT * FROM retired ORDER BY created DESC')]
+    return render_template('instructor/questions.html', groups=list(groups.values()), retired=retired, reasons=FLAG_REASONS,
+                           msg=request.args.get('msg'), err=request.args.get('err'))
+
+
+@app.route('/instructor/questions/retire', methods=['POST'])
+def instructor_retire():
+    need_instructor()
+    item = db.q('SELECT uid, skill, qjson FROM items WHERE id=?', (int(request.form.get('item_id') or 0),), one=True)
+    if not item: abort(404)
+    db.x('INSERT OR REPLACE INTO retired(uid, skill, note, qjson, created) VALUES (?,?,?,?,?)',
+         (item['uid'], item['skill'], (request.form.get('note') or '').strip()[:500], item['qjson'], time.time()))
+    db.x("UPDATE flags SET resolved=?, action='retired' WHERE uid=? AND resolved IS NULL", (time.time(), item['uid']))
+    pool.RETIRED.add(item['uid'])
+    back = request.form.get('back')
+    msg = 'Retired. It will not be given to any student again.'
+    if back and back.startswith('/review/'): return redirect(back + ('&' if '?' in back else '?') + 'msg=' + msg)
+    return redirect(url_for('instructor_questions', msg=msg))
+
+
+@app.route('/instructor/questions/restore', methods=['POST'])
+def instructor_restore():
+    need_instructor()
+    uid = request.form.get('uid') or ''
+    db.x('DELETE FROM retired WHERE uid=?', (uid,))
+    pool.RETIRED.discard(uid)
+    return redirect(url_for('instructor_questions', msg='Restored. It can be given again.'))
+
+
+@app.route('/instructor/flags/<int:fid>/dismiss', methods=['POST'])
+def instructor_dismiss_flag(fid):
+    need_instructor()
+    f = db.q('SELECT uid FROM flags WHERE id=?', (fid,), one=True)
+    if not f: abort(404)
+    db.x("UPDATE flags SET resolved=?, action='dismissed' WHERE uid=? AND resolved IS NULL", (time.time(), f['uid']))
+    return redirect(url_for('instructor_questions', msg='Dismissed. The question stays in use.'))
+
+
 def browsing():
     """Lecture sheets and the skills list are open to a signed-in student or the instructor."""
     s = me()
@@ -1033,7 +1182,8 @@ def webauthn(step):
 def instructor_home():
     need_instructor()
     roster = [analytics.roster_row(st) for st in db.q('SELECT * FROM students ORDER BY name COLLATE NOCASE')]
-    return render_template('instructor/home.html', roster=roster, lan=lan_addresses(), err=request.args.get('err'), msg=request.args.get('msg'))
+    open_flags = len(set(r['uid'] for r in db.q('SELECT uid FROM flags WHERE resolved IS NULL')))
+    return render_template('instructor/home.html', roster=roster, lan=lan_addresses(), err=request.args.get('err'), msg=request.args.get('msg'), open_flags=open_flags)
 
 
 @app.route('/instructor/students/new', methods=['POST'])
@@ -1065,7 +1215,7 @@ def instructor_student(stid):
         return redirect(url_for('parent_report', stid=stid))
     sessions = db.q('SELECT * FROM sessions WHERE student_id=? ORDER BY created DESC', (stid,))
     d = analytics.dashboard(stid)
-    return render_template('instructor/student.html', st=st, d=d, sessions=sessions, tests=PRIOR_TESTS, view='tutor', hw=hw_info(st),
+    return render_template('instructor/student.html', st=st, d=d, sessions=sessions, tests=PRIOR_TESTS, view='tutor', hw=hw_info(st), sheets=sheet_rows(stid),
                            ruler=analytics.svg_ruler(d['rw'], d['math'], d['total'], d['goal']),
                            tline=analytics.svg_timeline(d['timeline'], d['goal']), wvol=analytics.svg_week_volume(d['weekly']), wacc=analytics.svg_week_accuracy(d['weekly']),
                            msg=request.args.get('msg'), err=request.args.get('err'))

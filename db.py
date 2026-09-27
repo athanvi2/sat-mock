@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS plan_snapshots(
   student_id INTEGER NOT NULL, day TEXT NOT NULL, plan_json TEXT NOT NULL, PRIMARY KEY(student_id, day));
 CREATE TABLE IF NOT EXISTS hw_items(
   student_id INTEGER NOT NULL, sheet TEXT NOT NULL, uid TEXT NOT NULL, created REAL, PRIMARY KEY(student_id, sheet, uid));
+CREATE TABLE IF NOT EXISTS hw_sheets(
+  id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL, sheet TEXT NOT NULL, skill TEXT NOT NULL, kind TEXT, due TEXT, title TEXT,
+  qjson TEXT NOT NULL, created REAL, withdrawn REAL, session_id INTEGER, UNIQUE(student_id, sheet));
+CREATE TABLE IF NOT EXISTS flags(
+  id INTEGER PRIMARY KEY, student_id INTEGER, item_id INTEGER, uid TEXT NOT NULL, skill TEXT, reason TEXT, note TEXT,
+  created REAL, resolved REAL, action TEXT);
+CREATE TABLE IF NOT EXISTS retired(uid TEXT PRIMARY KEY, skill TEXT, note TEXT, qjson TEXT, created REAL);
 CREATE INDEX IF NOT EXISTS ix_items_module ON items(module_id);
 CREATE INDEX IF NOT EXISTS ix_modules_session ON modules(session_id);
 CREATE INDEX IF NOT EXISTS ix_sessions_student ON sessions(student_id);
@@ -129,7 +136,21 @@ def delete_student(student_id):
     c.execute('DELETE FROM events WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM plan_snapshots WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM hw_items WHERE student_id=?', (student_id,))
+    c.execute('DELETE FROM hw_sheets WHERE student_id=?', (student_id,))
+    c.execute('DELETE FROM flags WHERE student_id=?', (student_id,))
     c.execute('DELETE FROM students WHERE id=?', (student_id,))
+    c.commit()
+    c.close()
+
+
+def delete_session(session_id):
+    """Remove one session with its modules, items and responses (used when homework answers are entered again)."""
+    c = conn()
+    mods = '(SELECT id FROM modules WHERE session_id=?)'
+    c.execute('DELETE FROM responses WHERE item_id IN (SELECT id FROM items WHERE module_id IN %s)' % mods, (session_id,))
+    c.execute('DELETE FROM items WHERE module_id IN %s' % mods, (session_id,))
+    c.execute('DELETE FROM modules WHERE session_id=?', (session_id,))
+    c.execute('DELETE FROM sessions WHERE id=?', (session_id,))
     c.commit()
     c.close()
 
@@ -169,8 +190,29 @@ def record_sheet(student_id, sheet, uids):
 
 
 def forget_sheet(student_id, sheet):
-    """A sheet withdrawn before its due date (the plan changed) was never worked, so its questions are fresh again."""
+    """A sheet withdrawn before its due date (the plan changed) was never worked, so its questions are fresh again.
+    A sheet whose answers were already entered was worked, so it stays."""
+    row = q('SELECT session_id FROM hw_sheets WHERE student_id=? AND sheet=?', (student_id, sheet), one=True)
+    if row and row['session_id']: return
     x('DELETE FROM hw_items WHERE student_id=? AND sheet=?', (student_id, sheet))
+    x('DELETE FROM hw_sheets WHERE student_id=? AND sheet=?', (student_id, sheet))
+
+
+def save_sheet(student_id, sheet, skill, kind, due, title, qs):
+    """Keep a homework sheet's exact questions, in printed order, so its answers can be entered and graded later and a
+    re-made PDF (deleted by hand, say) shows the same questions the student already has."""
+    x('''INSERT INTO hw_sheets(student_id, sheet, skill, kind, due, title, qjson, created) VALUES (?,?,?,?,?,?,?,?)
+         ON CONFLICT(student_id, sheet) DO UPDATE SET title=excluded.title, withdrawn=NULL''',
+      (student_id, sheet, skill, kind, due, title, json.dumps(qs), time.time()))
+
+
+def sheet_questions(student_id, sheet):
+    row = q('SELECT qjson FROM hw_sheets WHERE student_id=? AND sheet=?', (student_id, sheet), one=True)
+    return json.loads(row['qjson']) if row else None
+
+
+def retired_uids():
+    return set(r['uid'] for r in q('SELECT uid FROM retired'))
 
 
 def response_rows(student_id, upto_ts=None):

@@ -159,6 +159,7 @@ def dashboard(student_id):
         ts = [r['time_ms'] for r in answered if r['section'] == sec and r['time_ms'] and r['timed']]
         if len(ts) >= 10: pace[sec] = sum(ts) / len(ts) / 1000.0 / SEC_TARGET_SEC[sec]
     data['pace'] = pace
+    data['timing'] = timing(rows)
     data['summary'] = summary_text(data)
     return data
 
@@ -330,3 +331,98 @@ def svg_week_accuracy(wk, w=320, h=170):
     for i, x in enumerate(wk):
         if i % 3 == (len(wk) - 1) % 3: s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (xs(i), h - 8, x['start'])
     return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Share of questions right on the first try, per week">%s</svg>' % (w, h, s)
+
+
+# ------------------------------------------------------------------ timing
+FAST_FRAC = 0.35   # an answer in under 35% of the real test's average time per question is treated as a quick one
+SLOW_FRAC = 2.0    # more than twice the average is a long one
+MIN_TIMING_N = 20  # answers per section before timing is described at all
+
+
+def _median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return None if not n else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2.0)
+
+
+def timing(rows):
+    """How the student spends time, per section, from in-app sets where no answer was shown until the end (so the clock
+    measures thinking, not reading explanations). Returns {section: dict(n, target, median, by_d, findings)}.
+    Each finding is (kind, headline, detail); kind 'watch' is worth acting on, 'good' is reassurance. Only patterns with
+    at least five answers behind them are called out."""
+    out = {}
+    for sec in SECTIONS:
+        target = SEC_TARGET_SEC[sec]
+        rr = [r for r in rows if r['section'] == sec and not r['omitted'] and r['time_ms'] and r.get('mode') != 'homework'
+              and r.get('assist', 'end') in ('end', None, '')]
+        blanks = [r for r in rows if r['section'] == sec and r['omitted'] and r.get('limit_sec')]
+        timed_n = len([r for r in rows if r['section'] == sec and r.get('limit_sec')])
+        secs = [min(r['time_ms'], 600000) / 1000.0 for r in rr]
+        info = dict(n=len(rr), target=target, median=_median(secs), by_d=[], findings=[])
+        for d, name in enumerate(('Easy', 'Medium', 'Hard')):
+            x = [(t, r['correct']) for t, r in zip(secs, rr) if r['d'] == d]
+            info['by_d'].append(dict(d=d, name=name, n=len(x), median=_median([t for t, _ in x]),
+                                     acc=(sum(c for _, c in x) / float(len(x))) if x else None))
+        out[sec] = info
+        if len(rr) < MIN_TIMING_N:
+            continue
+        acc_all = sum(r['correct'] for r in rr) / float(len(rr))
+        f = info['findings']
+        hard, easy = info['by_d'][2], info['by_d'][0]
+        if hard['n'] >= 5 and hard['median'] < 0.6 * target and hard['acc'] < 0.45:
+            f.append(('watch', 'Rushing hard questions',
+                      'Hard questions get a median of %d seconds, well under the real test&rsquo;s average of %d, and %d%% of them are right. '
+                      'Slowing down on these is likely worth points.' % (hard['median'], target, round(hard['acc'] * 100))))
+        fast = [(t, r['correct']) for t, r in zip(secs, rr) if t < FAST_FRAC * target]
+        if len(fast) >= 5 and not f:  # when hard questions are already flagged as rushed, this would say the same thing again
+            fa = sum(c for _, c in fast) / float(len(fast))
+            if fa < 0.4:
+                f.append(('watch', 'Quick answers are often guesses',
+                          '%d answers came in under %d seconds, and only %d%% of those were right. Reading the whole question before answering should help.'
+                          % (len(fast), round(FAST_FRAC * target), round(fa * 100))))
+        if easy['n'] >= 5 and easy['median'] > 1.3 * target:
+            f.append(('watch', 'Spending long on easy questions',
+                      'Easy questions take a median of %d seconds, more than the real test&rsquo;s average of %d per question, which leaves less time for harder ones.'
+                      % (easy['median'], target)))
+        slow = [(t, r['correct']) for t, r in zip(secs, rr) if t > SLOW_FRAC * target]
+        if len(slow) >= 5:
+            sa = sum(c for _, c in slow) / float(len(slow))
+            if sa < acc_all - 0.15:
+                f.append(('watch', 'Extra time is not paying off',
+                          'Questions that took more than %d seconds were right %d%% of the time, against %d%% overall. Past that point, mark it, make a guess, and come back if time allows.'
+                          % (round(SLOW_FRAC * target), round(sa * 100), round(acc_all * 100))))
+        if len(blanks) >= 3 and timed_n and len(blanks) / float(timed_n) >= 0.05:
+            f.append(('watch', 'Running out of time',
+                      '%d questions were left blank in timed sets (%d%%). Blanks count as wrong, so a guess on every question before time runs out is free points.'
+                      % (len(blanks), round(100.0 * len(blanks) / timed_n))))
+        if not f:
+            f.append(('good', 'Pacing looks healthy',
+                      'A median of %d seconds per question against the real test&rsquo;s average of %d, with no sign of rushing or getting stuck.' % (info['median'], target)))
+    return out
+
+
+def svg_timing(info, w=320, h=180):
+    """Median seconds per question at each difficulty, with the real test's average time per question as a dashed
+    reference line (named, with its value, in the caption under the chart). One series, one axis; the heading names the section."""
+    bars = [b for b in info['by_d'] if b['n']]
+    if info['n'] < MIN_TIMING_N or not bars: return ''
+    L, R, T, B = 34, 8, 14, 28
+    top = max([b['median'] for b in bars] + [info['target']]) * 1.15
+    step = 30 if top <= 180 else 60
+    top = int(-(-top // step) * step)
+    ys = lambda v: T + (1 - v / float(top)) * (h - T - B)
+    s = ''
+    for v in range(0, top + 1, step):
+        s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="%s"/><text x="0" y="%.1f" class="tkl">%ds</text>' % (L, w - R, ys(v), ys(v), 'axis' if v == 0 else 'grid', ys(v) + 4, v)
+    bw = (w - L - R) / 3.0
+    for b in info['by_d']:
+        x0 = L + b['d'] * bw
+        if b['n']:
+            tip = '%s: median %d seconds over %d answers, %d%% right' % (b['name'], round(b['median']), b['n'], round(b['acc'] * 100))
+            s += '<g data-tip="%s" tabindex="0"><rect x="%.1f" y="%d" width="%.1f" height="%.1f" class="hit"/>' % (_esc(tip), x0, T, bw, h - T - B)
+            s += '<path d="%s" class="wbar mark"/></g>' % _bar(x0 + bw * 0.22, ys(0), bw * 0.56, ys(0) - ys(b['median']))
+        s += '<text x="%.1f" y="%d" class="tk">%s</text>' % (x0 + bw / 2, h - 8, b['name'])
+    y = ys(info['target'])
+    s += '<g data-tip="Real test average: %d seconds per question" tabindex="0"><line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="hit" stroke-width="10" stroke="transparent"/>' % (round(info['target']), L, w - R, y, y)
+    s += '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="goalline"/></g>' % (L, w - R, y, y)
+    return '<svg viewBox="0 0 %d %d" class="tl" role="img" aria-label="Median seconds per question by difficulty">%s</svg>' % (w, h, s)

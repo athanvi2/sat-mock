@@ -43,9 +43,11 @@ bank/
   pool.py         Joins math_gen + rw_gen into one GEN dict. build_module() assembles a domain-weighted, difficulty-mixed module in official test order.
                   mock_plan() / full_plan() / session_plan() compute question counts and time limits.
 scoring.py        IRT-style (Rasch + guessing floor) score estimation. Documented in its own docstring as an ESTIMATE, not a real College Board model. The docstring lists each evidence rule and the failure it guards against.
-db.py             SQLite. Tables: students, sessions, modules, items, responses, prior_scores, settings, creds. MIGRATIONS adds columns to older files on startup. No ORM, just q()/x() helpers.
+db.py             SQLite. Tables: students, sessions, modules, items, responses, prior_scores, settings, creds, events, plan_snapshots,
+                  hw_items + hw_sheets (homework questions handed out / their saved sheets), flags + retired (reported and retired questions). MIGRATIONS adds columns to older files on startup. No ORM, just q()/x() helpers.
 auth.py           Instructor PIN (pbkdf2) + lockout, per-install cookie secret, and a minimal WebAuthn (Touch ID, ES256 only) verifier: small CBOR reader + pure-Python P-256 ECDSA. No crypto dependency.
-analytics.py      Dashboard payload (estimates, timeline incl. reported scores, weekly activity, per-skill mastery, recommendations) + server-side SVG charts.
+analytics.py      Dashboard payload (estimates, timeline incl. reported scores, weekly activity, per-skill mastery, recommendations,
+                  timing findings) + server-side SVG charts.
 planner.py        Per-student calendar: past sessions, tutor events, and a plan recomputed on every view with a "why" per item. RULES is the
                   parent-facing wording of exactly what plan() does; change both together (tests/plan_check.py asserts the rules).
 pdfout.py         HTML -> PDF through a local headless Chrome (parent report, guide, homework). No Python PDF dependency; CHROME_PATH overrides.
@@ -77,6 +79,12 @@ static/calc.js    Offline fallback graphing calculator (used when Desmos's CDN c
 **Adaptive routing (`app.py: module_score_ratio`, `advance`).** Module 2 becomes the harder variant if the difficulty-weighted share correct in Module 1 is >= `ROUTE_THRESHOLD` (currently 0.60), else the easier variant. This is a deliberate stand-in for the College Board's undisclosed real model. If you change the threshold or the weighting, update `tests/smoke.py`'s routing assertions to match.
 
 **Scoring is explicitly an estimate.** `scoring.py`'s docstring says so. Don't let score numbers creep into the UI or copy as if they were authoritative; "likely range" and "estimate" language is intentional throughout `analytics.py` and the templates.
+
+**Paper homework.** `hwsync` saves each sheet's exact questions in `hw_sheets` (a re-made PDF reuses them, so the printout and the answer entry always match). Students (or the tutor, from the student page) enter answers at `/homework/answers/<id>`; `enter_sheet_answers()` turns them into a finished, untimed session with `mode='homework'`. Blanks are left out, and `scoring.W_HOMEWORK` (x0.5, on top of x0.6 for one skill) keeps paper work from outweighing timed practice. The planner shows it as done on its due date and treats that homework slot as filled; hwsync then moves to the next sheet. An entered sheet is never "forgotten" when the plan changes.
+
+**Reported questions: manual only.** Students report from their review page (`flags`); the tutor retires (`retired`, loaded into `pool.RETIRED`, which `make_safe` never serves) or dismisses at `/instructor/questions`, or retires straight from any review page. Nothing is retired or re-labelled automatically; the tutor asked for it that way.
+
+**Timing.** `analytics.timing()` uses only in-app answers from sets with assist `end` (the clock then measures thinking, not reading explanations) and never paper homework. Findings need five answers behind them and 20 answers per section before anything is said. `svg_timing` draws median seconds by difficulty with the real test's average as a dashed reference line.
 
 ## Question bank depth (check `tests/bank_report.py` before assuming otherwise)
 

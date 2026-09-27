@@ -5,6 +5,7 @@
   <h1 style="margin:0">Students</h1>
   <span style="margin-left:auto" class="toolbar"><a class="btn ghost" href="{{ url_for('guide') }}">Guide for families</a>
     <a class="btn ghost" href="{{ url_for('skills_index') }}">Lecture sheets</a>
+    <a class="btn ghost" href="{{ url_for('instructor_questions') }}">Reported questions{% if open_flags %} ({{ open_flags }}){% endif %}</a>
     <a class="btn ghost" href="{{ url_for('instructor_settings') }}">Settings</a></span>
 </div>
 {% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}

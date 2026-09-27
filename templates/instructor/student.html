@@ -31,6 +31,12 @@
 {% endif %}
 
 <section class="sheet">
+  <h2>Homework sheets</h2>
+  <p class="small muted">If {{ st['name'].split(' ')[0] }} hands in paper, you can enter the answers here instead. Homework counts toward progress at half the weight of in-app practice, since it is done without a clock.</p>
+  {% with view='tutor' %}{% include '_hw_sheets.html' %}{% endwith %}
+</section>
+
+<section class="sheet">
   <h2>Sessions</h2>
   {% if sessions %}
   <div class="tablewrap"><table class="list">

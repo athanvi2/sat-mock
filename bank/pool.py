@@ -46,6 +46,9 @@ def make(skill, d, seed, spr=False):
     return q
 
 
+RETIRED = set()  # uids the tutor took out of use (db.retired, loaded by app.py); never given again
+
+
 def make_safe(skill, d, seed, spr, avoid, hard=None):
     """Build a question whose uid is not in `avoid` (soft: given recently) and never in `hard` (already in this set).
     `avoid` may be a set, or a dict {uid: when last given} (db.seen_uids). Order of preference:
@@ -64,7 +67,7 @@ def make_safe(skill, d, seed, spr, avoid, hard=None):
             except Exception:
                 continue
             last = last or q
-            if q['uid'] in hard:
+            if q['uid'] in hard or q['uid'] in RETIRED:
                 continue
             if q['uid'] not in avoid:
                 return q
@@ -78,7 +81,7 @@ def make_safe(skill, d, seed, spr, avoid, hard=None):
                 q = make(skill, d2, seed + k * 104729, spr)
             except Exception:
                 continue
-            if q['uid'] not in hard:
+            if q['uid'] not in hard and q['uid'] not in RETIRED:
                 return q
     if last is None:
         raise RuntimeError('could not build a question for %s' % skill)

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Reported questions{% endblock %}
+{% block content %}
+<h1>Reported questions</h1>
+<p class="prose">Students can report a question from their review page. Nothing happens on its own: for each one, read it, then
+  <b>retire</b> it (no student is given it again) or <b>dismiss</b> the report (it stays in use). You can also retire any question
+  straight from a student&rsquo;s review page. Retiring removes that exact question; if the same mistake shows up in many
+  versions of a generated question, the generator itself needs fixing.</p>
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+{% if err %}<p role="alert" class="errline">{{ err }}</p>{% endif %}
+
+{% for g in groups %}
+<section class="sheet">
+  <p class="muted small"><b>{{ g.skill }}</b>{% if g.q %}, {{ ['easy', 'medium', 'hard'][g.q['d']] }}{% endif %}. Reported {{ g.flags|length }} time{{ '' if g.flags|length == 1 else 's' }}. <span class="muted">Question id {{ g.uid }}</span></p>
+  <ul class="plain" style="padding-left:1.1rem">{% for f in g.flags %}
+    <li><b>{{ f['student'] or 'A student' }}</b>, {{ f['created']|ago }}: {{ reasons.get(f['reason'], f['reason']) }}{% if f['note'] %}: &ldquo;{{ f['note'] }}&rdquo;{% endif %}
+      {% if f['answer'] %}<span class="muted small">(their answer: {{ f['answer'] }})</span>{% endif %}</li>{% endfor %}</ul>
+  {% if g.q %}
+    {% if g.q['passage'] %}<div class="prose">{{ g.q['passage']|safe }}</div>{% endif %}
+    <div class="prose stemq">{{ g.q['q']|safe }}</div>
+    {% if g.q['figure'] %}{{ g.q['figure']|fig|safe }}{% endif %}
+    {% if g.q['type'] == 'mc' %}
+      <div class="prose">{% for c in g.q['choices'] %}{% set L = 'ABCD'[loop.index0] %}
+        <div style="margin:.25rem 0;{% if L == g.q['answer'] %}font-weight:700;color:var(--strong){% endif %}">{{ L }}. {{ c|safe }}{% if L == g.q['answer'] %} (marked correct){% endif %}</div>{% endfor %}</div>
+    {% else %}<p>Marked correct: <b>{{ g.q['answer'] }}</b></p>{% endif %}
+    <div class="feedback">{{ g.q['expl']|safe }}</div>
+  {% endif %}
+  <div class="toolbar" style="margin-top:.8rem">
+    <form method="post" action="{{ url_for('instructor_retire') }}" class="flagform" style="margin:0;flex:1 1 20rem">
+      <input type="hidden" name="item_id" value="{{ g.flags[0]['item_id'] }}">
+      <input type="text" name="note" maxlength="200" placeholder="Why (optional)" aria-label="Why retire this question">
+      <button class="btn">Retire</button></form>
+    <form method="post" action="{{ url_for('instructor_dismiss_flag', fid=g.flags[0]['id']) }}" style="margin:0"><button class="btn ghost">Dismiss</button></form>
+  </div>
+</section>
+{% else %}
+<section class="sheet"><p class="muted">No open reports.</p></section>
+{% endfor %}
+
+<section class="sheet">
+  <h2>Retired questions</h2>
+  {% if retired %}
+  <div class="tablewrap"><table class="list">
+    <thead><tr><th>Skill</th><th>Question</th><th>Why</th><th>Retired</th><th></th></tr></thead>
+    <tbody>{% for r in retired %}{% set q = r['qjson']|fromjson %}
+      <tr><td>{{ r['name'] }}</td><td class="small">{{ (q['q']|striptags)[:90] if q else r['uid'] }}</td><td class="small">{{ r['note'] or '' }}</td><td>{{ r['created']|ago }}</td>
+        <td class="r"><form method="post" action="{{ url_for('instructor_restore') }}" style="margin:0"><input type="hidden" name="uid" value="{{ r['uid'] }}"><button class="btn ghost">Restore</button></form></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">None.</p>{% endif %}
+</section>
+{% endblock %}

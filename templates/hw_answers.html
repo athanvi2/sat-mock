@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Homework{% endblock %}
+{% block content %}
+<h1>Homework</h1>
+<p class="prose">Finished a sheet? Enter your answers here. You will see which ones you got right, with an explanation for each, and your
+  results count toward your progress and your plan.</p>
+<section class="sheet">
+  {% include '_hw_sheets.html' %}
+</section>
+{% endblock %}

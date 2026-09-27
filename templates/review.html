@@ -2,10 +2,11 @@
 {% block title %}Review{% endblock %}
 {% block content %}
 <h1>Review: {{ sess['label'] }}</h1>
-<p class="noprint"><a href="{{ url_for('results', sid=sess['id']) }}">Back to results</a> &nbsp; {% if only == 'missed' %}<a href="{{ url_for('review', sid=sess['id']) }}">Show all</a>{% else %}<a href="{{ url_for('review', sid=sess['id']) }}?only=missed">Show missed only</a>{% endif %}</p>
+{% if msg %}<p role="status" class="okline">{{ msg }}</p>{% endif %}
+<p class="noprint">{% if sess['mode'] == 'homework' %}<a href="{{ url_for('homework_answers') if s else url_for('instructor_student', stid=st['id']) }}">Back to homework</a>{% else %}<a href="{{ url_for('results', sid=sess['id']) }}">Back to results</a>{% endif %} &nbsp; {% if only == 'missed' %}<a href="{{ url_for('review', sid=sess['id']) }}">Show all</a>{% else %}<a href="{{ url_for('review', sid=sess['id']) }}?only=missed">Show missed only</a>{% endif %}</p>
 {% for it in items %}{% if only != 'missed' or not it.ok %}
-<section class="sheet">
-  <p class="muted small"><b>Question {{ it.r['idx'] + 1 }}</b> in {{ SECTION_NAME[it.r['section']] }}, Module {{ it.r['module_no'] }}. {{ it.skill['name'] }}, {{ ['easy', 'medium', 'hard'][it.r['d']] }}.
+<section class="sheet" id="q{{ it.r['id'] }}">
+  <p class="muted small"><b>Question {{ it.r['idx'] + 1 }}</b> {% if sess['mode'] == 'homework' %}on the sheet{% else %}in {{ SECTION_NAME[it.r['section']] }}, Module {{ it.r['module_no'] }}{% endif %}. {{ it.skill['name'] }}, {{ ['easy', 'medium', 'hard'][it.r['d']] }}.
     {% if it.ok %}<span class="pill strong">Correct</span>{% elif it.mine %}<span class="pill miss">Missed</span>{% else %}<span class="pill new">Not answered</span>{% endif %}
     {% if it.r['time_ms'] %} Time {{ (it.r['time_ms'] / 1000)|round(0)|int }}s.{% endif %}
     {% if it.r['hint_used'] %} Used a hint{% if it.r['retry_answer'] %}; second try {{ it.r['retry_answer'] }} ({{ 'right' if it.r['retry_correct'] else 'wrong' }}){% endif %}.{% endif %}</p>
@@ -14,11 +15,26 @@
   {% if it.q['figure'] %}{{ it.q['figure']|fig|safe }}{% endif %}
   {% if it.q['type'] == 'mc' %}
     <div class="prose">{% for c in it.q['choices'] %}{% set L = 'ABCD'[loop.index0] %}
-      <div style="margin:.25rem 0;{% if L == it.q['answer'] %}font-weight:700;color:var(--strong){% elif L == it.mine %}color:var(--miss){% endif %}">{{ L }}. {{ c|safe }}{% if L == it.mine %} (first try){% endif %}{% if L == it.q['answer'] %} (correct){% endif %}</div>{% endfor %}</div>
+      <div style="margin:.25rem 0;{% if L == it.q['answer'] %}font-weight:700;color:var(--strong){% elif L == it.mine %}color:var(--miss){% endif %}">{{ L }}. {{ c|safe }}{% if L == it.mine %} ({{ 'your answer' if sess['mode'] == 'homework' else 'first try' }}){% endif %}{% if L == it.q['answer'] %} (correct){% endif %}</div>{% endfor %}</div>
   {% else %}
     <p>Your answer: <b>{{ it.mine or 'none' }}</b>. Correct answer: <b>{{ it.q['answer'] }}</b></p>
   {% endif %}
   <div class="feedback">{{ it.q['expl']|safe }}</div>
+  {% if inst %}
+    {% if it.r['uid'] in retired %}<p class="small muted noprint">This question is retired.</p>
+    {% else %}<form method="post" action="{{ url_for('instructor_retire') }}" class="noprint flagform">
+      <input type="hidden" name="item_id" value="{{ it.r['id'] }}"><input type="hidden" name="back" value="{{ request.full_path }}">
+      <input type="text" name="note" maxlength="200" placeholder="Why (optional)" aria-label="Why retire this question">
+      <button class="btn ghost">Retire this question</button></form>{% endif %}
+  {% else %}
+  <details class="noprint flagbox"><summary>Report a problem with this question</summary>
+    <form method="post" action="{{ url_for('flag_item', item_id=it.r['id']) }}">
+      <div class="choicebar" style="flex-direction:column;align-items:stretch">{% for k, label in reasons.items() %}
+        <label><input type="radio" name="reason" value="{{ k }}" {% if loop.first %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
+      <input type="text" name="note" maxlength="300" placeholder="What looks wrong? (optional)" aria-label="What looks wrong">
+      <p style="margin-top:.5rem"><button class="btn ghost">Send to my tutor</button></p>
+    </form></details>
+  {% endif %}
 </section>
 {% endif %}{% endfor %}
 {% endblock %}

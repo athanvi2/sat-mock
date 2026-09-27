@@ -106,6 +106,20 @@ input[type=number] { min-width: 6rem; }
 .choicebar label { border: 1.5px solid var(--rule); border-radius: 6px; padding: .45rem .8rem; cursor: pointer; background: var(--field); }
 .choicebar input { margin-right: .4rem; }
 .choicebar label:has(input:checked) { border-color: var(--cobalt); background: var(--sel); }
+/* homework answer entry: a bubble sheet, one row per question */
+.answersheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .2rem 1.5rem; }
+.answersheet > p { grid-column: 1 / -1; }
+.arow { display: flex; align-items: center; gap: .6rem; border: 0; border-bottom: 1px solid var(--rule); margin: 0; padding: .35rem 0; min-width: 0; }
+.arow legend { float: left; width: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; padding: 0; }
+.bubbles { display: flex; gap: .35rem; flex-wrap: wrap; }
+.bubbles label { cursor: pointer; }
+.bubbles input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.bubbles span { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border: 1.5px solid var(--graphite); border-radius: 999px; font-weight: 600; font-size: .9rem; }
+.bubbles .skip span { padding: 0 .6rem; border-style: dashed; font-weight: 400; font-size: .8rem; color: var(--graphite); }
+.bubbles input:checked + span { background: var(--cobalt); border-color: var(--cobalt); color: var(--sheet); }
+.bubbles .skip input:checked + span { background: var(--sel); color: var(--ink); border-color: var(--cobalt); }
+.bubbles input:focus-visible + span { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.gridin { max-width: 9rem; }
 fieldset { border: 0; padding: 0; margin: 0 0 1rem; }
 legend { font-weight: 700; padding: 0; margin-bottom: .2rem; }
 .hint { color: var(--graphite); font-size: .9rem; margin: .1rem 0 .4rem; }
@@ -391,3 +405,10 @@ details > summary { cursor: pointer; }
   .agenda .chip .chip-k { display: inline; }
 }
 @media print { .cal-day { min-height: 4.5rem; } .chip { background: #fff; } }
+
+/* reporting and retiring questions (review page, instructor/questions.html) */
+.flagbox { margin-top: .8rem; font-size: .9rem; }
+.flagbox summary { cursor: pointer; color: var(--graphite); }
+.flagbox form { margin-top: .5rem; max-width: 32rem; }
+.flagform { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .8rem; }
+.flagform input[type=text] { flex: 1 1 12rem; min-width: 0; }

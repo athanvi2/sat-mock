@@ -151,6 +151,11 @@ assert other.get('/results/%d' % dsid).status_code == 404 and other.get('/review
 r = ok(A.app.test_client().post('/login', data=dict(name='Test Student', pin='0000')), 'bad pin'); assert b'does not match' in r.data
 r = A.app.test_client().post('/login', data=dict(name='Test Student', pin='1234')); assert r.status_code == 302
 
+# ------------------------------------------------------------------ student address: no port when serving on 80
+A.PORT = 80; assert all(':' not in u.split('//')[1] for u in A.lan_addresses())
+A.PORT = 5050; assert all(u.endswith(':5050') for u in A.lan_addresses())
+A.PORT = 80
+
 # ------------------------------------------------------------------ instructor lock
 rx = A.app.test_client()
 assert rx.get('/instructor', environ_overrides=REMOTE).status_code == 404, 'instructor must not exist for other devices'
@@ -171,7 +176,7 @@ j = ci.post('/instructor/webauthn/register-begin').get_json(); assert j['pubKeyC
 assert A.app.test_client().post('/instructor/webauthn/register-begin').status_code == 302, 'enrolling needs an unlocked session'
 
 # ------------------------------------------------------------------ instructor pages and student CRUD
-r = ok(ci.get('/instructor'), 'roster'); assert b'Test Student' in r.data and b'Other Kid' in r.data and b':5050' in r.data
+r = ok(ci.get('/instructor'), 'roster'); assert b'Test Student' in r.data and b'Other Kid' in r.data and b'.local' in r.data
 ok(ci.post('/instructor/students/new', data=dict(name='Added By Tutor', pin='2468', goal='1350')), 'add')
 added = db.q("SELECT * FROM students WHERE name='Added By Tutor'", one=True); assert added and added['goal_total'] == 1350
 for path in ['/instructor/students/%d' % me['id'], '/instructor/students/%d?view=parent' % me['id'], '/instructor/settings',

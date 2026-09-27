@@ -9,10 +9,10 @@ A Flask app for one-on-one Digital SAT tutoring. It runs on your computer, store
 
 It prints two addresses:
 
-- **Instructor (this Mac):** http://localhost:5050/instructor. The first visit asks you to choose a 6-digit PIN; then turn on Touch ID in Settings. Instructor view only opens on this Mac.
-- **Students (same Wi-Fi):** the `http://<your-mac>.local:5050` address. Students add themselves on the welcome screen with a name and 4-digit PIN. If a device cannot connect, allow Python in System Settings > Network > Firewall.
+- **Instructor (this Mac):** http://localhost/instructor. The first visit asks you to choose a 6-digit PIN; then turn on Touch ID in Settings. Instructor view only opens on this Mac.
+- **Students (same Wi-Fi):** the `http://<your-mac>.local` address (rename it to something short like `satprep.local` in System Settings > General > Sharing > Local hostname). Students add themselves on the welcome screen with a name and 4-digit PIN. If a device cannot connect, allow Python in System Settings > Network > Firewall.
 
-Port 5050 is used because macOS AirPlay Receiver holds 5000. `run.sh` (macOS/Linux) and `run.bat` (Windows) do the same. Everything is in `sat_mock.db`; the instructor Settings page has a backup button, and a backup is saved automatically before a student is deleted.
+The app uses port 80 so addresses need no port number; if 80 is busy it falls back to 5050 (5000 belongs to macOS AirPlay Receiver) and shows that in the address. `run.sh` (macOS/Linux) and `run.bat` (Windows) do the same. Everything is in `sat_mock.db`; the instructor Settings page has a backup button, and a backup is saved automatically before a student is deleted.
 
 ## How a student starts
 

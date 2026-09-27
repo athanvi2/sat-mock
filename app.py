@@ -28,7 +28,27 @@ db.init()
 app.secret_key = auth.secret_key()
 app.config.update(SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_HTTPONLY=True)
 DESMOS_KEY = os.environ.get('DESMOS_API_KEY', 'dcb31709b452b1cf9dc26972add0fda6')  # demo key; get your own free key at desmos.com/api
-PORT = int(os.environ.get('PORT', 5050))  # 5000 is taken by macOS AirPlay Receiver
+PORT = int(os.environ.get('PORT', 80))  # set for real in __main__: 80 (no ":port" in the address) if free, else 5050
+
+
+def pick_port():
+    """80 gives students a clean address. macOS 10.14+ lets any user listen on it; if it is taken (or not allowed),
+    fall back to 5050 (5000 is used by macOS AirPlay Receiver). PORT in the environment always wins."""
+    if os.environ.get('PORT'):
+        return int(os.environ['PORT'])
+    for p in (80, 5050):
+        t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            t.bind(('0.0.0.0', p)); return p
+        except OSError:
+            continue
+        finally:
+            t.close()
+    return 5050
+
+
+def base_url(host):
+    return 'http://%s%s' % (host, '' if PORT == 80 else ':%d' % PORT)
 INST_IDLE_SEC = 2 * 3600
 ASSIST = {'end': 'Answers at the end', 'hint': 'Hint after a wrong first try, then the answer', 'answer': 'Answer after the first try'}
 PRIOR_TESTS = {  # test name -> (min, max) section score
@@ -222,11 +242,11 @@ def lan_addresses():
     except (OSError, subprocess.CalledProcessError):
         host = socket.gethostname().split('.')[0]
     if host:
-        out.append('http://%s.local:%d' % (host, PORT))
+        out.append(base_url(host.lower() + '.local'))
     try:
         u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         u.connect(('192.0.2.1', 9))  # no packet is sent; this just asks which interface would be used
-        out.append('http://%s:%d' % (u.getsockname()[0], PORT))
+        out.append(base_url(u.getsockname()[0]))
         u.close()
     except OSError:
         pass
@@ -1156,7 +1176,8 @@ def instructor_settings():
 
 if __name__ == '__main__':
     host = os.environ.get('HOST', '0.0.0.0')
-    print('\n  Instructor (this Mac):  http://localhost:%d/instructor' % PORT)
+    PORT = pick_port()
+    print('\n  Instructor (this Mac):  %s/instructor' % base_url('localhost'))
     for a in lan_addresses(): print('  Students on the Wi-Fi:  %s' % a)
     print('')
     app.run(host=host, port=PORT, debug=False, threaded=True)

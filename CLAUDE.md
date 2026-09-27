@@ -10,7 +10,7 @@ Read this file before making changes. It exists so you don't have to rediscover 
 source .venv/bin/activate
 python app.py
 ```
-Listens on all interfaces, port **5050** (5000 is taken by macOS AirPlay Receiver; `PORT`/`HOST` env vars override). The instructor uses http://localhost:5050/instructor on the Mac (Touch ID needs `localhost`, not `127.0.0.1`; the app redirects). Students use the `.local` / LAN address printed at startup and shown on the instructor page. `SAT_DB` env var overrides the sqlite file path (tests use `/tmp/*.db` so they never touch real student data).
+Listens on all interfaces on port **80** when it is free (macOS lets ordinary users bind it), else **5050** (5000 is taken by macOS AirPlay Receiver); `PORT`/`HOST` env vars override, see `pick_port()`. The instructor uses http://localhost/instructor on the Mac (Touch ID needs `localhost`, not `127.0.0.1`; the app redirects). Students use the `.local` / LAN address printed at startup and shown on the instructor page. `SAT_DB` env var overrides the sqlite file path (tests use `/tmp/*.db` so they never touch real student data).
 
 ## Testing
 

@@ -468,15 +468,16 @@ def two_var_data(r, d, spr):
                    figure=scatter_fig(r, m, b), **numeric(r, ans, False, [ans + 2, ans - 2, ans + 4, ans - 3]))
         return res
     if d == 1:
-        x, y, u1, u2 = r.choice([("hours studied", "test score", "hour", "points"), ("hours of practice", "free throws made out of 50", "hour", "free throws"),
-                                 ("daily minutes of reading", "vocabulary score", "minute", "points")])
+        x, y, u1, zero = r.choice([("hours studied", "test score", "hour studied", "0 hours studied"),
+                                   ("hours of practice", "free throws made out of 50", "hour of practice", "0 hours of practice"),
+                                   ("daily minutes of reading", "vocabulary score", "daily minute of reading", "0 daily minutes of reading")])
         m, b = r.randint(2, 9), r.randint(20, 60)
         eq = M(f"\\hat{{y}} = {m}x + {b}")
         which = r.random() < .5
-        good = f"For each additional {u1} of {x.split(' ', 1)[1] if ' ' in x else x}, the predicted {y} increases by {m}." if which else f"The predicted {y} for a student with 0 {x.split(' ', 1)[1]} is {b}."
-        bad = [f"The predicted {y} for a student with 0 {x.split(' ', 1)[1]} is {m}." if which else f"For each additional {u1}, the predicted {y} increases by {b}.",
-               f"For each additional {u1}, the predicted {y} decreases by {m}." if which else f"The predicted {y} for a student with {b} {x.split(' ', 1)[1]} is {m}.",
-               f"The predicted {y} is {m} times as large as the number of {x.split(' ', 1)[1]}, plus {b}." if which else f"The predicted {y} increases by {b}% each {u1}."]
+        good = f"For each additional {u1}, the predicted {y} increases by {m}." if which else f"The predicted {y} for a student with {zero} is {b}."
+        bad = [f"The predicted {y} for a student with {zero} is {m}." if which else f"For each additional {u1}, the predicted {y} increases by {b}.",
+               f"For each additional {u1}, the predicted {y} decreases by {m}." if which else f"The predicted {y} for a student with {b} {x} is {m}.",
+               f"The predicted {y} is {m} times as large as the number of {x}, plus {b}." if which else f"The predicted {y} increases by {b}% each {u1}."]
         return dict(q=f"A line of best fit for a data set relates {x} (x) and {y} (y): {eq}. Which is the best interpretation of {M(str(m if which else b))} in this context?",
                     expl="The slope is the change in the predicted y for each 1-unit increase in x; the intercept is the predicted y when x = 0.",
                     **mc(r, good, bad))
@@ -489,7 +490,7 @@ def two_var_data(r, d, spr):
     a, k = r.choice([(2, 3), (3, 2), (4, 3), (5, 2), (5, 3), (6, 2), (6, 3), (4, 2)])
     ys = [a * k ** i for i in range(4)]
     return dict(q=f"{table(['x', '0', '1', '2', '3'], [['y'] + ys])}<br>The table shows four values of x and their corresponding values of y. Which equation best models the relationship between x and y?",
-                expl=f"Each y is {k} times the previous y (a constant ratio), so the relationship is exponential: y = {a}({k})^x.",
+                expl=f"Each y is {k} times the previous y (a constant ratio), so the relationship is exponential: {M(f'y = {a}({k})^x')}.",
                 **mc(r, M(f"y = {a}({k})^x"), [M(f"y = {a} + {a * (k - 1)}x"), M(f"y = {k}({a})^x"), M(f"y = {a}x^{k}")]))
 
 

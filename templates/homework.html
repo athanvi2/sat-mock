@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Homework: {{ skill['name'] }}{% endblock %}
 {% block content %}
-<p class="noprint">
+<p class="noprint toolbar">
   <button class="btn" onclick="window.print()">Print</button>
   <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}?seed={{ seed }}&n={{ n }}&key={{ 0 if key else 1 }}">{{ 'Hide answer key' if key else 'Show answer key' }}</a>
   <a class="btn ghost" href="{{ url_for('homework', skill=skill['key']) }}">New set</a>
@@ -11,10 +11,10 @@
   <div class="cover">
     <h1>Homework: {{ skill['name'] }}</h1>
     <p>Name: <span class="blank" style="width:14rem"></span> &nbsp; Date: <span class="blank"></span></p>
-    <h2>How to do this:</h2>
-    <ol class="steps">{% for t in skill['how'] %}<li>{{ t }}</li>{% endfor %}</ol>
-    <h2>What can u see</h2>
+    <h2>What can you see?</h2>
     <ul class="plain">{% for t in skill['see'] %}<li>{{ t }}</li>{% endfor %}</ul>
+    <h2>How to do this</h2>
+    <ol class="steps">{% for t in skill['how'] %}<li>{{ t }}</li>{% endfor %}</ol>
     <h2>Watch out for</h2>
     <ul class="plain">{% for t in skill['traps'] %}<li>{{ t }}</li>{% endfor %}</ul>
     {% if skill['formulas'] %}<h2>Formulas</h2><div class="prose">{{ skill['formulas']|safe }}</div>{% endif %}
@@ -22,11 +22,11 @@
   </div>
   <div class="pagebreak"></div>
   {% for q in qs %}
-  <div class="prob">
+  <div class="prob numbered">
     <div class="n">{{ loop.index }}.</div>
     <div class="pb">
     {% if q['passage'] %}<div class="passage">{{ q['passage']|safe }}</div>{% endif %}
-    <p class="prose" style="margin:.2rem 0"><b>{{ q['q']|safe }}</b></p>
+    <div class="prose stemq">{{ q['q']|safe }}</div>
     {% if q['figure'] %}{{ q['figure']|fig|safe }}{% endif %}
     {% if q['type'] == 'mc' %}
       <div class="ch">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>
@@ -38,7 +38,7 @@
   {% if key %}
   <div class="pagebreak"></div>
   <h2>Answer key for the tutor</h2>
-  {% for q in qs %}<div class="prob"><p><b>{{ loop.index }}. {{ q['answer'] }}</b> ({{ ['easy', 'medium', 'hard'][q['d']] }})</p><div class="small">{{ q['expl']|safe }}</div></div>{% endfor %}
+  {% for q in qs %}<div class="prob numbered"><div class="n">{{ loop.index }}.</div><div><p style="margin:.2rem 0"><b>{{ q['answer'] }}</b> <span class="muted small">({{ ['easy', 'medium', 'hard'][q['d']] }})</span></p><div class="small">{{ q['expl']|safe }}</div></div></div>{% endfor %}
   {% endif %}
 </div>
 {% endblock %}

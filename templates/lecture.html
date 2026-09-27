@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Lecture: {{ skill['name'] }}{% endblock %}
 {% block content %}
-<p class="noprint"><a href="{{ url_for('skills_index') }}">All skills</a> &nbsp; <button class="btn ghost" onclick="window.print()">Print</button>
+<p class="noprint toolbar"><a href="{{ url_for('skills_index') }}">All skills</a> <button class="btn ghost" onclick="window.print()">Print</button>
   <a class="btn ghost" href="{{ url_for('lecture', skill=skill['key']) }}?seed={{ range(1, 9999)|random }}">Different examples</a>
   <a class="btn" href="{{ url_for('practice') }}?skill={{ skill['key'] }}">Practice this skill</a></p>
 <div class="paper">
@@ -18,9 +18,9 @@
   <div class="prob">
     <p class="muted small"><b>Example {{ loop.index }}</b> ({{ ['easy', 'medium', 'hard'][q['d']] }})</p>
     {% if q['passage'] %}<div class="passage">{{ q['passage']|safe }}</div>{% endif %}
-    <p class="prose"><b>{{ q['q']|safe }}</b></p>
+    <div class="prose stemq">{{ q['q']|safe }}</div>
     {% if q['figure'] %}{{ q['figure']|fig|safe }}{% endif %}
-    {% if q['type'] == 'mc' %}<div class="prose">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>{% endif %}
+    {% if q['type'] == 'mc' %}<div class="ch">{% for c in q['choices'] %}<div>{{ 'ABCD'[loop.index0] }}. {{ c|safe }}</div>{% endfor %}</div>{% endif %}
     <div class="feedback"><b>Answer: {{ q['answer'] }}.</b><br>{{ q['expl']|safe }}</div>
   </div>
   {% endfor %}

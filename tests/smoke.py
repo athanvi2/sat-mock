@@ -75,7 +75,7 @@ for acc in (0.9, 0.3):
 r = ok(c.get('/dashboard'), 'dash'); html = r.data.decode(); assert 'Where the score is likely' in html and '<svg' in html
 ok(c.get('/dashboard?view=parent'), 'parent')
 for sk in ['systems_2lin', 'boundaries', 'two_var_data', 'coe_quant']:
-    r = ok(c.get('/homework?skill=%s&key=1' % sk), 'hw'); assert b'How to do this:' in r.data and b'What can u see' in r.data
+    r = ok(c.get('/homework?skill=%s&key=1' % sk), 'hw'); assert b'How to do this' in r.data and b'What can you see?' in r.data
     r = ok(c.get('/lecture/%s' % sk), 'lec')
 # every skill page renders
 for k in A.SKILLS:
